@@ -139,11 +139,12 @@ public actor VectorIndex {
         }
         return Array(hits.sorted { $0.distance < $1.distance }.prefix(count))
         #else
-        guard try index512.count > 0 else { return [] }
         if vector.count == 4096, let idx = index4096 {
+            guard try idx.count > 0 else { return [] }
             let results = try idx.search(vector: vector, count: count)
             return zip(results.0, results.1).map { SearchHit(key: $0.0, distance: $0.1) }
         }
+        guard try index512.count > 0 else { return [] }
         let results = try index512.search(vector: vector, count: count)
         return zip(results.0, results.1).map { SearchHit(key: $0.0, distance: $0.1) }
         #endif
