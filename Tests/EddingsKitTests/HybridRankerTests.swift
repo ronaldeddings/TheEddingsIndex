@@ -10,9 +10,9 @@ struct HybridRankerTests {
         let ranker = HybridRanker()
 
         let ftsResults: [FTSIndex.FTSResult] = [
-            .init(id: 1, sourceTable: .emailChunks, score: -5.0),
-            .init(id: 2, sourceTable: .emailChunks, score: -3.0),
-            .init(id: 3, sourceTable: .documents, score: -1.0),
+            .init(id: 1, sourceTable: .emailChunks, score: -5.0, snippet: nil),
+            .init(id: 2, sourceTable: .emailChunks, score: -3.0, snippet: nil),
+            .init(id: 3, sourceTable: .documents, score: -1.0, snippet: nil),
         ]
 
         let semanticResults: [(id: Int64, sourceTable: SearchResult.SourceTable, distance: Float)] = [
@@ -37,7 +37,7 @@ struct HybridRankerTests {
         let ranker = HybridRanker()
 
         let ftsResults: [FTSIndex.FTSResult] = [
-            .init(id: 42, sourceTable: .emailChunks, score: -10.0),
+            .init(id: 42, sourceTable: .emailChunks, score: -10.0, snippet: nil),
         ]
 
         let semanticResults: [(id: Int64, sourceTable: SearchResult.SourceTable, distance: Float)] = [
@@ -58,7 +58,7 @@ struct HybridRankerTests {
         let ranker = HybridRanker()
 
         let ftsResults: [FTSIndex.FTSResult] = (1...10).map {
-            .init(id: Int64($0), sourceTable: .documents, score: Double(-$0))
+            .init(id: Int64($0), sourceTable: .documents, score: Double(-$0), snippet: nil)
         }
 
         let ranked = ranker.rank(ftsResults: ftsResults, semanticResults: [])
@@ -80,7 +80,7 @@ struct HybridRankerTests {
         let ranker = HybridRanker()
 
         let ftsResults: [FTSIndex.FTSResult] = [
-            .init(id: 1, sourceTable: .documents, score: -10.0),
+            .init(id: 1, sourceTable: .documents, score: -10.0, snippet: nil),
         ]
 
         let semanticResults: [(id: Int64, sourceTable: SearchResult.SourceTable, distance: Float)] = [

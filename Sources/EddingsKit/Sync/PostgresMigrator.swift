@@ -47,17 +47,21 @@ public struct PostgresMigrator: Sendable {
         logger.info("Rebuilding FTS5 indexes")
         try rebuildFTSTables()
 
+
         logger.info("Migration complete: docs=\(result.documents) emails=\(result.emailChunks) slack=\(result.slackChunks) transcripts=\(result.transcriptChunks) contacts=\(result.contacts) companies=\(result.companies) meetings=\(result.meetings)")
 
         return result
     }
+
+    private static let fieldSep = "\u{1F}"
+    private static let fieldSepChar: Character = "\u{1F}"
 
     private func psqlExport(query: String) throws -> String {
         let process = Process()
         process.executableURL = URL(filePath: "/usr/bin/env")
         process.arguments = [
             "psql", "-p", String(pgPort), "-d", pgDatabase,
-            "-t", "-A", "-F", "\t",
+            "-t", "-A", "-F", Self.fieldSep,
             "-c", query
         ]
 
@@ -66,53 +70,60 @@ public struct PostgresMigrator: Sendable {
         process.standardError = Pipe()
 
         try process.run()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
 
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
         return String(data: data, encoding: .utf8) ?? ""
+    }
+
+    private func psqlStreamingExport(query: String, batchSize: Int = 50000, handler: (String) throws -> Void) throws {
+        let countQuery = "SELECT count(*) FROM (\(query)) sub"
+        let countStr = try psqlExport(query: countQuery).trimmingCharacters(in: .whitespacesAndNewlines)
+        let totalRows = Int(countStr) ?? 0
+        logger.info("  Total rows: \(totalRows)")
+
+        var offset = 0
+        while offset < totalRows {
+            let pagedQuery = "\(query) ORDER BY id LIMIT \(batchSize) OFFSET \(offset)"
+            let output = try psqlExport(query: pagedQuery)
+            try handler(output)
+            offset += batchSize
+            if offset % 100000 == 0 || offset >= totalRows {
+                logger.info("  Exported \(min(offset, totalRows))/\(totalRows) rows")
+            }
+        }
     }
 
     private func migrateDocuments() throws -> Int {
         logger.info("Migrating documents...")
-        let output = try psqlExport(query: """
-            SELECT id, path, filename, extension, content, file_size, modified_at, area, category, content_type
-            FROM documents
-            """)
-
         var count = 0
-        try dbManager.dbPool.write { db in
-            var batch: [Document] = []
 
-            for line in output.split(separator: "\n") {
-                let fields = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
-                guard fields.count >= 10 else { continue }
+        try psqlStreamingExport(
+            query: "SELECT id, path, filename, extension, REPLACE(REPLACE(LEFT(content, 10000), E'\\n', ' '), E'\\r', ' '), file_size, modified_at, area, category, content_type FROM documents",
+            batchSize: 50000
+        ) { output in
+            try dbManager.dbPool.write { db in
+                for line in output.split(separator: "\n") {
+                    let fields = line.split(separator: Self.fieldSepChar, omittingEmptySubsequences: false).map(String.init)
+                    guard fields.count >= 10 else { continue }
 
-                let doc = Document(
-                    id: Int64(fields[0]),
-                    path: fields[1],
-                    filename: fields[2],
-                    content: fields[4].isEmpty ? nil : fields[4],
-                    extension: fields[3].isEmpty ? nil : fields[3],
-                    fileSize: Int64(fields[5]),
-                    modifiedAt: parseTimestamp(fields[6]),
-                    area: fields[7].isEmpty ? nil : fields[7],
-                    category: fields[8].isEmpty ? nil : fields[8],
-                    contentType: fields[9].isEmpty ? nil : fields[9]
-                )
-                batch.append(doc)
-
-                if batch.count >= 1000 {
-                    for var d in batch { try d.insert(db) }
-                    count += batch.count
-                    batch.removeAll(keepingCapacity: true)
-                    if count % 100000 == 0 {
-                        logger.info("  documents: \(count) migrated...")
-                    }
+                    var doc = Document(
+                        id: Int64(fields[0]),
+                        path: fields[1],
+                        filename: fields[2],
+                        content: fields[4].isEmpty ? nil : fields[4],
+                        extension: fields[3].isEmpty ? nil : fields[3],
+                        fileSize: Int64(fields[5]),
+                        modifiedAt: self.parseTimestamp(fields[6]),
+                        area: fields[7].isEmpty ? nil : fields[7],
+                        category: fields[8].isEmpty ? nil : fields[8],
+                        contentType: fields[9].isEmpty ? nil : fields[9]
+                    )
+                    try doc.insert(db, onConflict: .ignore)
+                    count += 1
                 }
             }
-
-            for var d in batch { try d.insert(db) }
-            count += batch.count
+            self.logger.info("  documents: \(count) migrated...")
         }
 
         logger.info("Migrated \(count) documents")
@@ -121,59 +132,51 @@ public struct PostgresMigrator: Sendable {
 
     private func migrateEmailChunks() throws -> Int {
         logger.info("Migrating email chunks...")
-        let output = try psqlExport(query: """
-            SELECT id, email_id, email_path, subject, from_name, from_email,
-                   array_to_string(to_emails, ','), array_to_string(cc_emails, ','),
-                   chunk_text, chunk_index, array_to_string(labels, ','),
-                   email_date, year, month, quarter, is_sent_by_me, has_attachments,
-                   is_reply, thread_id, from_contact_id
-            FROM email_chunks
-            """)
-
         var count = 0
-        try dbManager.dbPool.write { db in
-            var batch: [EmailChunk] = []
 
-            for line in output.split(separator: "\n") {
-                let fields = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
-                guard fields.count >= 20 else { continue }
+        try psqlStreamingExport(
+            query: """
+                SELECT id, email_id, email_path, REPLACE(REPLACE(subject, E'\\n', ' '), E'\\r', ' '), from_name, from_email,
+                       array_to_string(to_emails, ','), array_to_string(cc_emails, ','),
+                       REPLACE(REPLACE(chunk_text, E'\\n', ' '), E'\\r', ' '), chunk_index, array_to_string(labels, ','),
+                       email_date, year, month, quarter, is_sent_by_me, has_attachments,
+                       is_reply, thread_id, from_contact_id
+                FROM email_chunks
+                """,
+            batchSize: 50000
+        ) { output in
+            try dbManager.dbPool.write { db in
+                for line in output.split(separator: "\n") {
+                    let fields = line.split(separator: Self.fieldSepChar, omittingEmptySubsequences: false).map(String.init)
+                    guard fields.count >= 20 else { continue }
 
-                let chunk = EmailChunk(
-                    id: Int64(fields[0]),
-                    emailId: fields[1],
-                    emailPath: fields[2].isEmpty ? nil : fields[2],
-                    subject: fields[3].isEmpty ? nil : fields[3],
-                    fromName: fields[4].isEmpty ? nil : fields[4],
-                    fromEmail: fields[5].isEmpty ? nil : fields[5],
-                    toEmails: fields[6].isEmpty ? nil : fields[6],
-                    ccEmails: fields[7].isEmpty ? nil : fields[7],
-                    chunkText: fields[8].isEmpty ? nil : fields[8],
-                    chunkIndex: Int(fields[9]),
-                    labels: fields[10].isEmpty ? nil : fields[10],
-                    emailDate: parseTimestamp(fields[11]),
-                    year: Int(fields[12]),
-                    month: Int(fields[13]),
-                    quarter: Int(fields[14]),
-                    isSentByMe: fields[15] == "t",
-                    hasAttachments: fields[16] == "t",
-                    isReply: fields[17] == "t",
-                    threadId: fields[18].isEmpty ? nil : fields[18],
-                    fromContactId: Int64(fields[19])
-                )
-                batch.append(chunk)
-
-                if batch.count >= 1000 {
-                    for var e in batch { try e.insert(db) }
-                    count += batch.count
-                    batch.removeAll(keepingCapacity: true)
-                    if count % 50000 == 0 {
-                        logger.info("  email chunks: \(count) migrated...")
-                    }
+                    var chunk = EmailChunk(
+                        id: Int64(fields[0]),
+                        emailId: fields[1],
+                        emailPath: fields[2].isEmpty ? nil : fields[2],
+                        subject: fields[3].isEmpty ? nil : fields[3],
+                        fromName: fields[4].isEmpty ? nil : fields[4],
+                        fromEmail: fields[5].isEmpty ? nil : fields[5],
+                        toEmails: fields[6].isEmpty ? nil : fields[6],
+                        ccEmails: fields[7].isEmpty ? nil : fields[7],
+                        chunkText: fields[8].isEmpty ? nil : fields[8],
+                        chunkIndex: Int(fields[9]),
+                        labels: fields[10].isEmpty ? nil : fields[10],
+                        emailDate: self.parseTimestamp(fields[11]),
+                        year: Int(fields[12]),
+                        month: Int(fields[13]),
+                        quarter: Int(fields[14]),
+                        isSentByMe: fields[15] == "t",
+                        hasAttachments: fields[16] == "t",
+                        isReply: fields[17] == "t",
+                        threadId: fields[18].isEmpty ? nil : fields[18],
+                        fromContactId: Int64(fields[19])
+                    )
+                    try chunk.insert(db, onConflict: .ignore)
+                    count += 1
                 }
             }
-
-            for var e in batch { try e.insert(db) }
-            count += batch.count
+            self.logger.info("  email chunks: \(count) migrated...")
         }
 
         logger.info("Migrated \(count) email chunks")
@@ -184,7 +187,7 @@ public struct PostgresMigrator: Sendable {
         logger.info("Migrating slack chunks...")
         let output = try psqlExport(query: """
             SELECT id, channel, channel_type, array_to_string(speakers, ','),
-                   chunk_text, message_date, year, month,
+                   REPLACE(REPLACE(chunk_text, E'\\n', ' '), E'\\r', ' '), message_date, year, month,
                    has_files, has_reactions, thread_ts, is_thread_reply
             FROM slack_chunks
             """)
@@ -192,7 +195,7 @@ public struct PostgresMigrator: Sendable {
         var count = 0
         try dbManager.dbPool.write { db in
             for line in output.split(separator: "\n") {
-                let fields = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+                let fields = line.split(separator: Self.fieldSepChar, omittingEmptySubsequences: false).map(String.init)
                 guard fields.count >= 12 else { continue }
 
                 var chunk = SlackChunk(
@@ -209,7 +212,7 @@ public struct PostgresMigrator: Sendable {
                     threadTs: fields[10].isEmpty ? nil : fields[10],
                     isThreadReply: fields[11] == "t"
                 )
-                try chunk.insert(db)
+                try chunk.insert(db, onConflict: .ignore)
                 count += 1
             }
         }
@@ -221,16 +224,16 @@ public struct PostgresMigrator: Sendable {
     private func migrateTranscriptChunks() throws -> Int {
         logger.info("Migrating transcript chunks...")
         let output = try psqlExport(query: """
-            SELECT c.id, c.file_path, c.content, c.chunk_index,
+            SELECT c.id, c.file_path, REPLACE(REPLACE(c.chunk_text, E'\\n', ' '), E'\\r', ' '), c.chunk_index,
                    c.speaker_name, c.meeting_id
             FROM chunks c
-            WHERE c.content_type = 'transcript' OR c.content_type IS NULL
+            WHERE c.content_type = 'transcript'
             """)
 
         var count = 0
         try dbManager.dbPool.write { db in
             for line in output.split(separator: "\n") {
-                let fields = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+                let fields = line.split(separator: Self.fieldSepChar, omittingEmptySubsequences: false).map(String.init)
                 guard fields.count >= 6 else { continue }
 
                 var chunk = TranscriptChunk(
@@ -241,7 +244,7 @@ public struct PostgresMigrator: Sendable {
                     speakerName: fields[4].isEmpty ? nil : fields[4],
                     meetingId: fields[5].isEmpty ? nil : fields[5]
                 )
-                try chunk.insert(db)
+                try chunk.insert(db, onConflict: .ignore)
                 count += 1
             }
         }
@@ -253,7 +256,7 @@ public struct PostgresMigrator: Sendable {
     private func migrateContacts() throws -> Int {
         logger.info("Migrating contacts...")
         let output = try psqlExport(query: """
-            SELECT id, display_name, primary_email, company_id, role,
+            SELECT id, name, email, company_id, role,
                    first_seen_at, last_seen_at, email_count, meeting_count, slack_count
             FROM contacts
             """)
@@ -261,7 +264,7 @@ public struct PostgresMigrator: Sendable {
         var count = 0
         try dbManager.dbPool.write { db in
             for line in output.split(separator: "\n") {
-                let fields = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+                let fields = line.split(separator: Self.fieldSepChar, omittingEmptySubsequences: false).map(String.init)
                 guard fields.count >= 10 else { continue }
 
                 var contact = Contact(
@@ -276,7 +279,7 @@ public struct PostgresMigrator: Sendable {
                     meetingCount: Int(fields[8]) ?? 0,
                     slackCount: Int(fields[9]) ?? 0
                 )
-                try contact.insert(db)
+                try contact.insert(db, onConflict: .ignore)
                 count += 1
             }
         }
@@ -295,7 +298,7 @@ public struct PostgresMigrator: Sendable {
         var count = 0
         try dbManager.dbPool.write { db in
             for line in output.split(separator: "\n") {
-                let fields = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+                let fields = line.split(separator: Self.fieldSepChar, omittingEmptySubsequences: false).map(String.init)
                 guard fields.count >= 3 else { continue }
 
                 var company = Company(
@@ -303,7 +306,7 @@ public struct PostgresMigrator: Sendable {
                     name: fields[1],
                     domain: fields[2].isEmpty ? nil : fields[2]
                 )
-                try company.insert(db)
+                try company.insert(db, onConflict: .ignore)
                 count += 1
             }
         }
@@ -324,7 +327,7 @@ public struct PostgresMigrator: Sendable {
         var count = 0
         try dbManager.dbPool.write { db in
             for line in output.split(separator: "\n") {
-                let fields = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+                let fields = line.split(separator: Self.fieldSepChar, omittingEmptySubsequences: false).map(String.init)
                 guard fields.count >= 10 else { continue }
 
                 let startTime = parseTimestamp(fields[3])
@@ -344,7 +347,7 @@ public struct PostgresMigrator: Sendable {
                     videoUrl: fields[8].isEmpty ? nil : fields[8],
                     filePath: fields[9].isEmpty ? nil : fields[9]
                 )
-                try meeting.insert(db)
+                try meeting.insert(db, onConflict: .ignore)
                 count += 1
             }
         }
@@ -355,11 +358,14 @@ public struct PostgresMigrator: Sendable {
 
     private func dropFTSTables() throws {
         try dbManager.dbPool.write { db in
-            try db.execute(sql: "DROP TABLE IF EXISTS documents_fts")
-            try db.execute(sql: "DROP TABLE IF EXISTS emailChunks_fts")
-            try db.execute(sql: "DROP TABLE IF EXISTS slackChunks_fts")
-            try db.execute(sql: "DROP TABLE IF EXISTS transcriptChunks_fts")
-            try db.execute(sql: "DROP TABLE IF EXISTS financialTransactions_fts")
+            let tables = ["documents", "emailChunks", "slackChunks", "transcriptChunks", "financialTransactions"]
+            for table in tables {
+                for suffix in ["_ai", "_ad", "_au"] {
+                    try db.execute(sql: "DROP TRIGGER IF EXISTS __\(table)_fts\(suffix)")
+                    try db.execute(sql: "DROP TRIGGER IF EXISTS \(table)_fts\(suffix)")
+                }
+                try db.execute(sql: "DROP TABLE IF EXISTS \(table)_fts")
+            }
         }
     }
 

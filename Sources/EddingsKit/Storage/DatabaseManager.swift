@@ -13,8 +13,9 @@ public final class DatabaseManager: Sendable {
         return containerURL.appending(path: "eddingsindex.sqlite").path()
     }
 
-    public init(path: String) throws {
-        let config = Configuration()
+    public init(path: String, foreignKeysEnabled: Bool = true) throws {
+        var config = Configuration()
+        config.foreignKeysEnabled = foreignKeysEnabled
         dbPool = try DatabasePool(path: path, configuration: config)
         try migrator.migrate(dbPool)
         logger.info("Database initialized at \(path)")

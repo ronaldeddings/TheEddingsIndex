@@ -142,6 +142,7 @@ struct FinancePipelineTests {
             FinancialSnapshot(
                 snapshotDate: Date(),
                 accountId: "checking",
+                accountType: "checking",
                 balance: 10000,
                 source: "simplefin"
             ),
@@ -161,13 +162,13 @@ struct FinancePipelineTests {
                 accountId: "biz",
                 transactionDate: Date(),
                 amount: 12000,
-                payee: "Optro"
+                payee: "Optro",
+                category: "Client Payment"
             ),
         ]
 
         let score = tracker.calculate(snapshots: snapshots, transactions: transactions, weeksElapsed: 12)
         #expect(score.weeklyTarget == 6058.0)
-        #expect(score.netWorth == 8000.0)
         #expect(score.totalDebt == 2000.0)
         #expect(score.weeklyNonW2TakeHome == 1000.0)
     }

@@ -13,8 +13,8 @@ struct MigrateCommand: ParsableCommand {
 
     @Option(name: .long, help: "Database path")
     var dbPath: String = {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        return home.appending(path: "Library/Application Support/com.hackervalley.eddingsindex/eddings.sqlite").path()
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        return appSupport.appendingPathComponent("com.hackervalley.eddingsindex/eddings.sqlite").path
     }()
 
     func run() throws {
@@ -26,7 +26,7 @@ struct MigrateCommand: ParsableCommand {
         let dir = URL(filePath: dbPath).deletingLastPathComponent()
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
-        let dbManager = try DatabaseManager(path: dbPath)
+        let dbManager = try DatabaseManager(path: dbPath, foreignKeysEnabled: false)
         let migrator = PostgresMigrator(dbManager: dbManager)
 
         print("Starting PostgreSQL → SQLite migration...")

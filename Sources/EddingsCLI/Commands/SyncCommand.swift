@@ -25,8 +25,8 @@ struct SyncCommand: AsyncParsableCommand {
 
     @Option(name: .long, help: "Database path")
     var dbPath: String = {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        return home.appending(path: "Library/Application Support/com.hackervalley.eddingsindex/eddings.sqlite").path()
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        return appSupport.appendingPathComponent("com.hackervalley.eddingsindex/eddings.sqlite").path
     }()
 
     func run() async throws {
