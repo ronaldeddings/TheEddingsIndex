@@ -93,9 +93,18 @@ struct SearchCommand: AsyncParsableCommand {
                 if let snippet = result.snippet {
                     entry["snippet"] = String(snippet.prefix(200))
                 }
+                if let fullContent = result.fullContent {
+                    entry["fullContent"] = fullContent
+                }
                 if let date = result.date {
                     let f = ISO8601DateFormatter()
                     entry["date"] = f.string(from: date)
+                }
+                if let sourceLocator = result.sourceLocator {
+                    entry["sourceLocator"] = sourceLocator
+                }
+                if let speakers = result.speakers, !speakers.isEmpty {
+                    entry["speakers"] = speakers.joined(separator: ", ")
                 }
                 if let meta = result.metadata {
                     for (k, v) in meta where !v.isEmpty {

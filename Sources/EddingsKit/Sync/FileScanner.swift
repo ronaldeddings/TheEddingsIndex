@@ -13,7 +13,7 @@ public struct FileScanner: Sendable {
         "70-79_Lifestyle"
     ]
 
-    private let indexableExtensions: Set<String> = ["md", "txt", "json", "csv", "yml", "yaml", "toml"]
+    private let indexableExtensions: Set<String> = ["md", "txt", "csv", "yml", "yaml", "toml"]
 
     public init(dbPool: DatabasePool, basePath: String = "/Volumes/VRAM") {
         self.dbPool = dbPool
@@ -43,21 +43,20 @@ public struct FileScanner: Sendable {
                 guard let content, !content.isEmpty else { continue }
 
                 let jd = extractJohnnyDecimal(from: file.path)
-                let chunker = SmartChunker()
-                let chunks = chunker.chunk(content)
-                let storedContent = chunks.first?.text ?? String(content.prefix(10000))
 
                 try dbPool.write { db in
                     var doc = Document(
                         path: file.path,
                         filename: file.lastPathComponent,
-                        content: storedContent,
+                        content: content,
                         extension: file.pathExtension,
                         fileSize: Int64(content.utf8.count),
                         modifiedAt: file.modifiedDate,
                         area: jd.area,
                         category: jd.category,
-                        contentType: "file"
+                        contentType: "file",
+                        createdAt: file.createdDate,
+                        indexedAt: Date()
                     )
                     try doc.insert(db)
                 }
@@ -75,12 +74,12 @@ public struct FileScanner: Sendable {
 
         guard let enumerator = fm.enumerator(
             at: URL(filePath: directory),
-            includingPropertiesForKeys: [.contentModificationDateKey, .isRegularFileKey],
+            includingPropertiesForKeys: [.contentModificationDateKey, .creationDateKey, .isRegularFileKey],
             options: [.skipsHiddenFiles, .skipsPackageDescendants]
         ) else { return [] }
 
         for case let url as URL in enumerator {
-            guard let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .contentModificationDateKey]),
+            guard let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .contentModificationDateKey, .creationDateKey]),
                   values.isRegularFile == true else { continue }
 
             let ext = url.pathExtension.lowercased()
@@ -93,7 +92,8 @@ public struct FileScanner: Sendable {
                 path: url.path(),
                 lastPathComponent: url.lastPathComponent,
                 pathExtension: ext,
-                modifiedDate: values.contentModificationDate
+                modifiedDate: values.contentModificationDate,
+                createdDate: values.creationDate
             ))
         }
 
@@ -121,5 +121,6 @@ public struct FileScanner: Sendable {
         let lastPathComponent: String
         let pathExtension: String
         let modifiedDate: Date?
+        let createdDate: Date?
     }
 }

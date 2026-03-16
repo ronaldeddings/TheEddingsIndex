@@ -22,6 +22,10 @@ public struct EmailChunk: Codable, Sendable, Identifiable, FetchableRecord, Pers
     public var isReply: Bool = false
     public var threadId: String?
     public var fromContactId: Int64?
+    public var attachmentCount: Int = 0
+    public var attachmentNames: String?
+    public var bccEmails: String?
+    public var importance: String?
 
     public static let databaseTableName = "emailChunks"
 
@@ -49,7 +53,11 @@ public struct EmailChunk: Codable, Sendable, Identifiable, FetchableRecord, Pers
         hasAttachments: Bool = false,
         isReply: Bool = false,
         threadId: String? = nil,
-        fromContactId: Int64? = nil
+        fromContactId: Int64? = nil,
+        attachmentCount: Int = 0,
+        attachmentNames: String? = nil,
+        bccEmails: String? = nil,
+        importance: String? = nil
     ) {
         self.id = id
         self.emailId = emailId
@@ -71,5 +79,9 @@ public struct EmailChunk: Codable, Sendable, Identifiable, FetchableRecord, Pers
         self.isReply = isReply
         self.threadId = threadId
         self.fromContactId = fromContactId
+        self.attachmentCount = attachmentCount
+        self.attachmentNames = attachmentNames
+        self.bccEmails = bccEmails
+        self.importance = importance
     }
 }

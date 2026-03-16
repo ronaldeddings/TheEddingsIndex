@@ -12,6 +12,8 @@ public struct Document: Codable, Sendable, Identifiable, FetchableRecord, Persis
     public var area: String?
     public var category: String?
     public var contentType: String?
+    public var createdAt: Date?
+    public var indexedAt: Date?
 
     public static let databaseTableName = "documents"
 
@@ -29,7 +31,9 @@ public struct Document: Codable, Sendable, Identifiable, FetchableRecord, Persis
         modifiedAt: Date? = nil,
         area: String? = nil,
         category: String? = nil,
-        contentType: String? = nil
+        contentType: String? = nil,
+        createdAt: Date? = nil,
+        indexedAt: Date? = nil
     ) {
         self.id = id
         self.path = path
@@ -41,5 +45,7 @@ public struct Document: Codable, Sendable, Identifiable, FetchableRecord, Persis
         self.area = area
         self.category = category
         self.contentType = contentType
+        self.createdAt = createdAt
+        self.indexedAt = indexedAt
     }
 }

@@ -152,7 +152,8 @@ public actor iCloudManager {
 
     private static let syncableRecordTypes: Set<String> = [
         "Contact", "Company", "FinancialTransaction", "FinancialSnapshot",
-        "Meeting", "MonthlySummary"
+        "Meeting", "MonthlySummary", "MeetingParticipant",
+        "TranscriptChunk", "EmailChunk", "SlackChunk"
     ]
 
     private nonisolated func upsertRecord(_ record: CKRecord, into db: Database) {
@@ -166,6 +167,16 @@ public actor iCloudManager {
             upsertTransaction(record, into: db)
         case "FinancialSnapshot":
             upsertSnapshot(record, into: db)
+        case "TranscriptChunk":
+            upsertTranscriptChunk(record, into: db)
+        case "EmailChunk":
+            upsertEmailChunk(record, into: db)
+        case "SlackChunk":
+            upsertSlackChunk(record, into: db)
+        case "Meeting":
+            upsertMeeting(record, into: db)
+        case "MeetingParticipant":
+            upsertMeetingParticipant(record, into: db)
         default:
             logger.info("Skipping unknown record type: \(recordType)")
         }
@@ -186,6 +197,16 @@ public actor iCloudManager {
             _ = try? db.execute(sql: "DELETE FROM financialTransactions WHERE id = ?", arguments: [id])
         case "financialSnapshots":
             _ = try? db.execute(sql: "DELETE FROM financialSnapshots WHERE id = ?", arguments: [id])
+        case "transcriptChunks":
+            _ = try? db.execute(sql: "DELETE FROM transcriptChunks WHERE id = ?", arguments: [id])
+        case "emailChunks":
+            _ = try? db.execute(sql: "DELETE FROM emailChunks WHERE id = ?", arguments: [id])
+        case "slackChunks":
+            _ = try? db.execute(sql: "DELETE FROM slackChunks WHERE id = ?", arguments: [id])
+        case "meetings":
+            _ = try? db.execute(sql: "DELETE FROM meetings WHERE id = ?", arguments: [id])
+        case "meetingParticipants":
+            _ = try? db.execute(sql: "DELETE FROM meetingParticipants WHERE id = ?", arguments: [id])
         default:
             break
         }
@@ -227,10 +248,94 @@ public actor iCloudManager {
                 record["transactionDate"] = txn.transactionDate
                 record["categoryModifiedAt"] = txn.categoryModifiedAt
                 return record
+            case "transcriptChunks":
+                guard let chunk = try? TranscriptChunk.fetchOne(db, key: id) else { return nil }
+                let record = CKRecord(recordType: "TranscriptChunk", recordID: recordID)
+                record["filePath"] = chunk.filePath
+                record["chunkIndex"] = chunk.chunkIndex
+                record["speakerName"] = chunk.speakerName
+                record["speakers"] = chunk.speakers
+                record["meetingId"] = chunk.meetingId
+                record["year"] = chunk.year
+                record["month"] = chunk.month
+                record["quarter"] = chunk.quarter
+                record["startTime"] = chunk.startTime
+                record["endTime"] = chunk.endTime
+                attachContentAsAssetIfNeeded(record: record, field: "chunkText", text: chunk.chunkText)
+                return record
+            case "emailChunks":
+                guard let email = try? EmailChunk.fetchOne(db, key: id) else { return nil }
+                let record = CKRecord(recordType: "EmailChunk", recordID: recordID)
+                record["emailId"] = email.emailId
+                record["subject"] = email.subject
+                record["fromName"] = email.fromName
+                record["fromEmail"] = email.fromEmail
+                record["chunkIndex"] = email.chunkIndex
+                record["year"] = email.year
+                record["month"] = email.month
+                record["quarter"] = email.quarter
+                record["isSentByMe"] = email.isSentByMe
+                record["hasAttachments"] = email.hasAttachments
+                attachContentAsAssetIfNeeded(record: record, field: "chunkText", text: email.chunkText)
+                return record
+            case "slackChunks":
+                guard let slack = try? SlackChunk.fetchOne(db, key: id) else { return nil }
+                let record = CKRecord(recordType: "SlackChunk", recordID: recordID)
+                record["channel"] = slack.channel
+                record["speakers"] = slack.speakers
+                record["messageDate"] = slack.messageDate
+                record["year"] = slack.year
+                record["month"] = slack.month
+                record["quarter"] = slack.quarter
+                record["chunkIndex"] = slack.chunkIndex
+                attachContentAsAssetIfNeeded(record: record, field: "chunkText", text: slack.chunkText)
+                return record
+            case "meetings":
+                guard let meeting = try? Meeting.fetchOne(db, key: id) else { return nil }
+                let record = CKRecord(recordType: "Meeting", recordID: recordID)
+                record["meetingId"] = meeting.meetingId
+                record["title"] = meeting.title
+                record["startTime"] = meeting.startTime
+                record["year"] = meeting.year
+                record["month"] = meeting.month
+                record["quarter"] = meeting.quarter
+                record["isInternal"] = meeting.isInternal
+                record["filePath"] = meeting.filePath
+                return record
+            case "meetingParticipants":
+                guard let mp = try? MeetingParticipant.fetchOne(db, key: id) else { return nil }
+                let record = CKRecord(recordType: "MeetingParticipant", recordID: recordID)
+                record["meetingId"] = mp.meetingId
+                record["contactId"] = mp.contactId
+                record["role"] = mp.role
+                return record
             default:
                 return nil
             }
         }
+    }
+
+    private static func attachContentAsAssetIfNeeded(record: CKRecord, field: String, text: String?) {
+        guard let text, !text.isEmpty else { return }
+        if text.utf8.count < 50_000 {
+            record[field] = text
+        } else {
+            let tempURL = FileManager.default.temporaryDirectory
+                .appending(path: "ck-asset-\(UUID().uuidString).txt")
+            try? text.write(to: tempURL, atomically: true, encoding: .utf8)
+            record["\(field)Asset"] = CKAsset(fileURL: tempURL)
+        }
+    }
+
+    private static func readContentFromAssetOrInline(record: CKRecord, field: String) -> String? {
+        if let asset = record["\(field)Asset"] as? CKAsset,
+           let url = asset.fileURL {
+            let appContainer = FileManager.default.temporaryDirectory
+                .appending(path: "ck-fetched-\(UUID().uuidString).txt")
+            try? FileManager.default.copyItem(at: url, to: appContainer)
+            return try? String(contentsOf: appContainer, encoding: .utf8)
+        }
+        return record[field] as? String
     }
 
     private nonisolated func upsertContact(_ record: CKRecord, into db: Database) {
@@ -300,6 +405,104 @@ public actor iCloudManager {
         snapshot.balance = record["balance"] as? Double ?? snapshot.balance
         snapshot.accountName = record["accountName"] as? String ?? snapshot.accountName
         try? snapshot.save(db)
+    }
+
+    private nonisolated func upsertTranscriptChunk(_ record: CKRecord, into db: Database) {
+        let parts = record.recordID.recordName.split(separator: "/")
+        guard parts.count == 2, let id = Int64(parts[1]) else { return }
+
+        let text = Self.readContentFromAssetOrInline(record: record, field: "chunkText")
+
+        var chunk = (try? TranscriptChunk.fetchOne(db, key: id)) ?? TranscriptChunk(
+            filePath: record["filePath"] as? String,
+            chunkText: text,
+            chunkIndex: record["chunkIndex"] as? Int,
+            speakers: record["speakers"] as? String,
+            speakerName: record["speakerName"] as? String,
+            meetingId: record["meetingId"] as? String,
+            year: record["year"] as? Int,
+            month: record["month"] as? Int,
+            quarter: record["quarter"] as? Int,
+            startTime: record["startTime"] as? String,
+            endTime: record["endTime"] as? String
+        )
+        chunk.id = id
+        chunk.chunkText = text ?? chunk.chunkText
+        try? chunk.save(db)
+    }
+
+    private nonisolated func upsertEmailChunk(_ record: CKRecord, into db: Database) {
+        let parts = record.recordID.recordName.split(separator: "/")
+        guard parts.count == 2, let id = Int64(parts[1]) else { return }
+
+        let text = Self.readContentFromAssetOrInline(record: record, field: "chunkText")
+
+        var chunk = (try? EmailChunk.fetchOne(db, key: id)) ?? EmailChunk(
+            emailId: record["emailId"] as? String ?? "unknown"
+        )
+        chunk.id = id
+        chunk.subject = record["subject"] as? String ?? chunk.subject
+        chunk.fromName = record["fromName"] as? String ?? chunk.fromName
+        chunk.fromEmail = record["fromEmail"] as? String ?? chunk.fromEmail
+        chunk.chunkText = text ?? chunk.chunkText
+        chunk.chunkIndex = record["chunkIndex"] as? Int ?? chunk.chunkIndex
+        chunk.year = record["year"] as? Int ?? chunk.year
+        chunk.month = record["month"] as? Int ?? chunk.month
+        chunk.quarter = record["quarter"] as? Int ?? chunk.quarter
+        chunk.isSentByMe = record["isSentByMe"] as? Bool ?? chunk.isSentByMe
+        chunk.hasAttachments = record["hasAttachments"] as? Bool ?? chunk.hasAttachments
+        try? chunk.save(db)
+    }
+
+    private nonisolated func upsertSlackChunk(_ record: CKRecord, into db: Database) {
+        let parts = record.recordID.recordName.split(separator: "/")
+        guard parts.count == 2, let id = Int64(parts[1]) else { return }
+
+        let text = Self.readContentFromAssetOrInline(record: record, field: "chunkText")
+
+        var chunk = (try? SlackChunk.fetchOne(db, key: id)) ?? SlackChunk(
+            channel: record["channel"] as? String
+        )
+        chunk.id = id
+        chunk.speakers = record["speakers"] as? String ?? chunk.speakers
+        chunk.chunkText = text ?? chunk.chunkText
+        chunk.messageDate = record["messageDate"] as? Date ?? chunk.messageDate
+        chunk.year = record["year"] as? Int ?? chunk.year
+        chunk.month = record["month"] as? Int ?? chunk.month
+        chunk.quarter = record["quarter"] as? Int ?? chunk.quarter
+        chunk.chunkIndex = record["chunkIndex"] as? Int ?? chunk.chunkIndex
+        try? chunk.save(db)
+    }
+
+    private nonisolated func upsertMeeting(_ record: CKRecord, into db: Database) {
+        let parts = record.recordID.recordName.split(separator: "/")
+        guard parts.count == 2, let id = Int64(parts[1]) else { return }
+
+        var meeting = (try? Meeting.fetchOne(db, key: id)) ?? Meeting(
+            meetingId: record["meetingId"] as? String ?? "unknown"
+        )
+        meeting.id = id
+        meeting.title = record["title"] as? String ?? meeting.title
+        meeting.startTime = record["startTime"] as? Date ?? meeting.startTime
+        meeting.year = record["year"] as? Int ?? meeting.year
+        meeting.month = record["month"] as? Int ?? meeting.month
+        meeting.quarter = record["quarter"] as? Int ?? meeting.quarter
+        meeting.isInternal = record["isInternal"] as? Bool ?? meeting.isInternal
+        meeting.filePath = record["filePath"] as? String ?? meeting.filePath
+        try? meeting.save(db)
+    }
+
+    private nonisolated func upsertMeetingParticipant(_ record: CKRecord, into db: Database) {
+        let parts = record.recordID.recordName.split(separator: "/")
+        guard parts.count == 2, let id = Int64(parts[1]) else { return }
+
+        var mp = (try? MeetingParticipant.fetchOne(db, key: id)) ?? MeetingParticipant(
+            meetingId: record["meetingId"] as? Int64 ?? 0,
+            contactId: record["contactId"] as? Int64 ?? 0
+        )
+        mp.id = id
+        mp.role = record["role"] as? String ?? mp.role
+        try? mp.save(db)
     }
 
     private nonisolated func resolveConflict(local: CKRecord, server: CKRecord, in db: Database) {

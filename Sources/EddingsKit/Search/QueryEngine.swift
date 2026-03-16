@@ -20,6 +20,14 @@ public actor QueryEngine {
         sources: [FTSIndex.FTSTable]? = nil,
         year: Int? = nil,
         month: Int? = nil,
+        quarter: Int? = nil,
+        since: Date? = nil,
+        person: String? = nil,
+        speaker: String? = nil,
+        sentByMe: Bool? = nil,
+        hasAttachments: Bool? = nil,
+        isInternal: Bool? = nil,
+        includeSpam: Bool = false,
         limit: Int = 20
     ) async throws -> [SearchResult] {
         let tables = sources ?? FTSIndex.FTSTable.allCases
@@ -29,7 +37,15 @@ public actor QueryEngine {
             tables: tables,
             limit: limit * 3,
             year: year,
-            month: month
+            month: month,
+            quarter: quarter,
+            since: since,
+            person: person,
+            speaker: speaker,
+            sentByMe: sentByMe,
+            hasAttachments: hasAttachments,
+            isInternal: isInternal,
+            includeSpam: includeSpam
         )
 
         var semanticResults: [(id: Int64, sourceTable: SearchResult.SourceTable, distance: Float)] = []
@@ -86,9 +102,12 @@ private func resolveResult(db: Database, result: RankedResult) -> SearchResult? 
             sourceTable: .documents,
             title: doc.filename,
             snippet: ftsSnippet ?? doc.content.map { String($0.prefix(200)) },
+            fullContent: doc.content,
             date: doc.modifiedAt,
             score: result.score,
-            metadata: ["path": doc.path]
+            metadata: ["path": doc.path],
+            sourceLocator: doc.path,
+            speakers: nil
         )
     case .emailChunks:
         guard let email = try? EmailChunk.fetchOne(db, key: result.id) else { return nil }
@@ -97,34 +116,47 @@ private func resolveResult(db: Database, result: RankedResult) -> SearchResult? 
             sourceTable: .emailChunks,
             title: email.subject ?? "Email",
             snippet: ftsSnippet ?? email.chunkText.map { String($0.prefix(200)) },
+            fullContent: email.chunkText,
             date: email.emailDate,
             score: result.score,
             metadata: [
                 "from": email.fromName ?? "",
                 "fromEmail": email.fromEmail ?? ""
-            ]
+            ],
+            sourceLocator: email.emailPath ?? email.emailId,
+            speakers: nil
         )
     case .slackChunks:
         guard let slack = try? SlackChunk.fetchOne(db, key: result.id) else { return nil }
+        let speakerList = slack.speakers?.split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
         return SearchResult(
             id: result.id,
             sourceTable: .slackChunks,
             title: slack.channel ?? "Slack",
             snippet: ftsSnippet ?? slack.chunkText.map { String($0.prefix(200)) },
+            fullContent: slack.chunkText,
             date: slack.messageDate,
             score: result.score,
-            metadata: ["channel": slack.channel ?? ""]
+            metadata: ["channel": slack.channel ?? ""],
+            sourceLocator: "slack://\(slack.channel ?? "")/\(slack.messageDate.map { "\($0)" } ?? "")",
+            speakers: speakerList
         )
     case .transcriptChunks:
         guard let chunk = try? TranscriptChunk.fetchOne(db, key: result.id) else { return nil }
+        let speakerList = chunk.speakers?.split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
         return SearchResult(
             id: result.id,
             sourceTable: .transcriptChunks,
             title: chunk.speakerName ?? "Transcript",
             snippet: ftsSnippet ?? chunk.chunkText.map { String($0.prefix(200)) },
+            fullContent: chunk.chunkText,
             date: nil,
             score: result.score,
-            metadata: ["meetingId": chunk.meetingId ?? ""]
+            metadata: ["meetingId": chunk.meetingId ?? ""],
+            sourceLocator: chunk.filePath,
+            speakers: speakerList
         )
     case .financialTransactions:
         guard let txn = try? FinancialTransaction.fetchOne(db, key: result.id) else { return nil }
@@ -133,12 +165,15 @@ private func resolveResult(db: Database, result: RankedResult) -> SearchResult? 
             sourceTable: .financialTransactions,
             title: txn.payee ?? txn.description ?? "Transaction",
             snippet: ftsSnippet ?? txn.description,
+            fullContent: txn.description,
             date: txn.transactionDate,
             score: result.score,
             metadata: [
                 "amount": String(txn.amount),
                 "category": txn.category ?? ""
-            ]
+            ],
+            sourceLocator: txn.transactionId,
+            speakers: nil
         )
     case .contacts, .meetings:
         return nil

@@ -55,10 +55,26 @@ public struct FTSIndex: Sendable {
         tables: [FTSTable] = FTSTable.allCases,
         limit: Int = 50,
         year: Int? = nil,
-        month: Int? = nil
+        month: Int? = nil,
+        quarter: Int? = nil,
+        since: Date? = nil,
+        person: String? = nil,
+        speaker: String? = nil,
+        sentByMe: Bool? = nil,
+        hasAttachments: Bool? = nil,
+        isInternal: Bool? = nil,
+        includeSpam: Bool = false
     ) throws -> [FTSResult] {
         let sanitized = sanitizeFTSQuery(query)
         guard !sanitized.isEmpty else { return [] }
+
+        let hasTemporalFilter = year != nil || month != nil || quarter != nil || since != nil
+        let effectiveSince: Date?
+        if !hasTemporalFilter {
+            effectiveSince = Calendar.current.date(byAdding: .month, value: -3, to: Date())
+        } else {
+            effectiveSince = since
+        }
 
         var allResults: [FTSResult] = []
 
@@ -70,7 +86,15 @@ public struct FTSIndex: Sendable {
                     query: sanitized,
                     limit: limit,
                     year: year,
-                    month: month
+                    month: month,
+                    quarter: quarter,
+                    since: effectiveSince,
+                    person: person,
+                    speaker: speaker,
+                    sentByMe: sentByMe,
+                    hasAttachments: hasAttachments,
+                    isInternal: isInternal,
+                    includeSpam: includeSpam
                 )
                 allResults.append(contentsOf: results)
             }
@@ -86,18 +110,98 @@ public struct FTSIndex: Sendable {
         query: String,
         limit: Int,
         year: Int?,
-        month: Int?
+        month: Int?,
+        quarter: Int?,
+        since: Date?,
+        person: String?,
+        speaker: String?,
+        sentByMe: Bool?,
+        hasAttachments: Bool?,
+        isInternal: Bool?,
+        includeSpam: Bool
     ) throws -> [FTSResult] {
         var conditions: [String] = []
         var arguments: [DatabaseValue] = [query.databaseValue]
 
-        if let year, table != .documents {
-            conditions.append("\(table.rawValue).year = ?")
-            arguments.append(year.databaseValue)
+        if table != .documents {
+            if let year {
+                conditions.append("\(table.rawValue).year = ?")
+                arguments.append(year.databaseValue)
+            }
+            if let month {
+                conditions.append("\(table.rawValue).month = ?")
+                arguments.append(month.databaseValue)
+            }
+            if let quarter {
+                conditions.append("\(table.rawValue).quarter = ?")
+                arguments.append(quarter.databaseValue)
+            }
         }
-        if let month, table != .documents {
-            conditions.append("\(table.rawValue).month = ?")
-            arguments.append(month.databaseValue)
+
+        if let since, table != .documents {
+            switch table {
+            case .emailChunks:
+                conditions.append("(\(table.rawValue).emailDate >= ? OR \(table.rawValue).emailDate IS NULL)")
+                arguments.append(since.databaseValue)
+            case .slackChunks:
+                conditions.append("(\(table.rawValue).messageDate >= ? OR \(table.rawValue).messageDate IS NULL)")
+                arguments.append(since.databaseValue)
+            case .financialTransactions:
+                conditions.append("(\(table.rawValue).transactionDate >= ? OR \(table.rawValue).transactionDate IS NULL)")
+                arguments.append(since.databaseValue)
+            default:
+                break
+            }
+        }
+
+        if let person {
+            let likePattern = "%\(person)%"
+            switch table {
+            case .emailChunks:
+                conditions.append("(\(table.rawValue).fromName LIKE ? OR \(table.rawValue).fromEmail LIKE ? OR \(table.rawValue).toEmails LIKE ?)")
+                arguments.append(contentsOf: [likePattern.databaseValue, likePattern.databaseValue, likePattern.databaseValue])
+            case .slackChunks:
+                conditions.append("(\(table.rawValue).speakers LIKE ? OR \(table.rawValue).realNames LIKE ?)")
+                arguments.append(contentsOf: [likePattern.databaseValue, likePattern.databaseValue])
+            case .transcriptChunks:
+                conditions.append("\(table.rawValue).speakers LIKE ?")
+                arguments.append(likePattern.databaseValue)
+            default:
+                break
+            }
+        }
+
+        if let speaker {
+            let likePattern = "%\(speaker)%"
+            switch table {
+            case .slackChunks:
+                conditions.append("(\(table.rawValue).speakers LIKE ? OR \(table.rawValue).realNames LIKE ?)")
+                arguments.append(contentsOf: [likePattern.databaseValue, likePattern.databaseValue])
+            case .transcriptChunks:
+                conditions.append("\(table.rawValue).speakers LIKE ?")
+                arguments.append(likePattern.databaseValue)
+            default:
+                break
+            }
+        }
+
+        if let sentByMe, table == .emailChunks {
+            conditions.append("\(table.rawValue).isSentByMe = ?")
+            arguments.append(sentByMe.databaseValue)
+        }
+
+        if let hasAttachments, table == .emailChunks {
+            conditions.append("\(table.rawValue).hasAttachments = ?")
+            arguments.append(hasAttachments.databaseValue)
+        }
+
+        if let isInternal, table == .transcriptChunks {
+            conditions.append("""
+                \(table.rawValue).meetingId IN (
+                    SELECT meetingId FROM meetings WHERE isInternal = ?
+                )
+            """)
+            arguments.append(isInternal.databaseValue)
         }
 
         let whereClause = conditions.isEmpty
@@ -107,7 +211,7 @@ public struct FTSIndex: Sendable {
         let sql = """
             SELECT \(table.rawValue).rowid AS id,
                    bm25(\(table.ftsTableName), \(table.bm25Weights)) AS rank,
-                   snippet(\(table.ftsTableName), 0, '<b>', '</b>', '...', 32) AS snippet
+                   snippet(\(table.ftsTableName), -1, '<b>', '</b>', '...', 64) AS snippet
             FROM \(table.ftsTableName)
             JOIN \(table.rawValue) ON \(table.rawValue).rowid = \(table.ftsTableName).rowid
             WHERE \(table.ftsTableName) MATCH ?

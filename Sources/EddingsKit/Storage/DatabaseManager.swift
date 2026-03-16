@@ -261,6 +261,113 @@ public final class DatabaseManager: Sendable {
             try db.create(index: "idx_snap_date", on: "financialSnapshots", columns: ["snapshotDate"])
         }
 
+        migrator.registerMigration("v2_full_content") { db in
+
+            // -- meetingParticipants junction table --
+            try db.create(table: "meetingParticipants") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("meetingId", .integer)
+                    .notNull()
+                    .references("meetings", onDelete: .cascade)
+                t.column("contactId", .integer)
+                    .notNull()
+                    .references("contacts", onDelete: .cascade)
+                t.column("role", .text)
+                t.column("speakingTimeSeconds", .integer)
+                t.uniqueKey(["meetingId", "contactId"])
+            }
+            try db.create(index: "idx_mp_meeting", on: "meetingParticipants", columns: ["meetingId"])
+            try db.create(index: "idx_mp_contact", on: "meetingParticipants", columns: ["contactId"])
+
+            // -- emailChunks: add attachment metadata --
+            try db.alter(table: "emailChunks") { t in
+                t.add(column: "attachmentCount", .integer).defaults(to: 0)
+                t.add(column: "attachmentNames", .text)
+                t.add(column: "bccEmails", .text)
+                t.add(column: "importance", .text)
+            }
+
+            // -- slackChunks: add rich metadata --
+            try db.alter(table: "slackChunks") { t in
+                t.add(column: "userIds", .text)
+                t.add(column: "realNames", .text)
+                t.add(column: "companies", .text)
+                t.add(column: "quarter", .integer)
+                t.add(column: "messageCount", .integer)
+                t.add(column: "isEdited", .boolean).defaults(to: false)
+                t.add(column: "replyCount", .integer).defaults(to: 0)
+                t.add(column: "emojiReactions", .text)
+                t.add(column: "chunkIndex", .integer)
+            }
+
+            // -- transcriptChunks: add temporal + confidence --
+            try db.alter(table: "transcriptChunks") { t in
+                t.add(column: "quarter", .integer)
+                t.add(column: "startTime", .text)
+                t.add(column: "endTime", .text)
+                t.add(column: "speakerConfidence", .double)
+            }
+
+            // -- meetings: add quarter + description --
+            try db.alter(table: "meetings") { t in
+                t.add(column: "quarter", .integer)
+                t.add(column: "description", .text)
+                t.add(column: "teamDomain", .text)
+            }
+
+            // -- documents: add file date tracking --
+            try db.alter(table: "documents") { t in
+                t.add(column: "createdAt", .datetime)
+                t.add(column: "indexedAt", .datetime)
+            }
+
+            // -- New indexes for filter support --
+            try db.create(index: "idx_email_quarter", on: "emailChunks", columns: ["quarter"])
+            try db.create(index: "idx_email_sent", on: "emailChunks", columns: ["isSentByMe"])
+            try db.create(index: "idx_email_attachments", on: "emailChunks", columns: ["hasAttachments"])
+            try db.create(index: "idx_slack_quarter", on: "slackChunks", columns: ["quarter"])
+            try db.create(index: "idx_transcript_quarter", on: "transcriptChunks", columns: ["quarter"])
+            try db.create(index: "idx_meeting_quarter", on: "meetings", columns: ["quarter"])
+            try db.create(index: "idx_meeting_internal", on: "meetings", columns: ["isInternal"])
+
+            // -- Backfill quarter for existing data --
+            try db.execute(sql: """
+                UPDATE emailChunks SET quarter = CASE
+                    WHEN month BETWEEN 1 AND 3 THEN 1
+                    WHEN month BETWEEN 4 AND 6 THEN 2
+                    WHEN month BETWEEN 7 AND 9 THEN 3
+                    WHEN month BETWEEN 10 AND 12 THEN 4
+                END WHERE quarter IS NULL AND month IS NOT NULL
+            """)
+
+            try db.execute(sql: """
+                UPDATE slackChunks SET quarter = CASE
+                    WHEN month BETWEEN 1 AND 3 THEN 1
+                    WHEN month BETWEEN 4 AND 6 THEN 2
+                    WHEN month BETWEEN 7 AND 9 THEN 3
+                    WHEN month BETWEEN 10 AND 12 THEN 4
+                END WHERE quarter IS NULL AND month IS NOT NULL
+            """)
+
+            try db.execute(sql: """
+                UPDATE transcriptChunks SET quarter = CASE
+                    WHEN month BETWEEN 1 AND 3 THEN 1
+                    WHEN month BETWEEN 4 AND 6 THEN 2
+                    WHEN month BETWEEN 7 AND 9 THEN 3
+                    WHEN month BETWEEN 10 AND 12 THEN 4
+                END WHERE quarter IS NULL AND month IS NOT NULL
+            """)
+
+            try db.execute(sql: """
+                UPDATE meetings SET quarter = CASE
+                    WHEN month BETWEEN 1 AND 3 THEN 1
+                    WHEN month BETWEEN 4 AND 6 THEN 2
+                    WHEN month BETWEEN 7 AND 9 THEN 3
+                    WHEN month BETWEEN 10 AND 12 THEN 4
+                END WHERE quarter IS NULL AND month IS NOT NULL
+            """)
+        }
+
         return migrator
     }
 }

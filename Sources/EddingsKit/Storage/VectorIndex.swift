@@ -223,6 +223,20 @@ public actor VectorIndex {
         }
         #endif
 
+        excludeFromBackup(directory.appending(path: "reality-512.usearch"))
+        excludeFromBackup(directory.appending(path: "reality-4096.usearch"))
+
         logger.info("VectorIndex saved (generation \(gen))")
+    }
+
+    private func excludeFromBackup(_ url: URL) {
+        var mutableURL = url
+        do {
+            var values = URLResourceValues()
+            values.isExcludedFromBackup = true
+            try mutableURL.setResourceValues(values)
+        } catch {
+            logger.debug("Failed to set isExcludedFromBackup on \(url.lastPathComponent): \(error)")
+        }
     }
 }

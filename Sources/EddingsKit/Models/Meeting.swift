@@ -14,6 +14,9 @@ public struct Meeting: Codable, Sendable, Identifiable, FetchableRecord, Persist
     public var participantCount: Int?
     public var videoUrl: String?
     public var filePath: String?
+    public var quarter: Int?
+    public var description: String?
+    public var teamDomain: String?
 
     public static let databaseTableName = "meetings"
 
@@ -33,7 +36,10 @@ public struct Meeting: Codable, Sendable, Identifiable, FetchableRecord, Persist
         isInternal: Bool = false,
         participantCount: Int? = nil,
         videoUrl: String? = nil,
-        filePath: String? = nil
+        filePath: String? = nil,
+        quarter: Int? = nil,
+        description: String? = nil,
+        teamDomain: String? = nil
     ) {
         self.id = id
         self.meetingId = meetingId
@@ -47,5 +53,8 @@ public struct Meeting: Codable, Sendable, Identifiable, FetchableRecord, Persist
         self.participantCount = participantCount
         self.videoUrl = videoUrl
         self.filePath = filePath
+        self.quarter = quarter
+        self.description = description
+        self.teamDomain = teamDomain
     }
 }

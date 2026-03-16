@@ -23,6 +23,9 @@ struct SyncCommand: AsyncParsableCommand {
     @Flag(name: .long, help: "Meeting transcripts only")
     var meetings = false
 
+    @Flag(name: .long, help: "Email JSON files only")
+    var emails = false
+
     @Option(name: .long, help: "Database path")
     var dbPath: String = {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -38,12 +41,13 @@ struct SyncCommand: AsyncParsableCommand {
         let stateManager = StateManager(directory: stateDir)
         let merchantMap = MerchantMap()
 
-        if !finance && !all && !files && !slack && !meetings {
+        if !finance && !all && !files && !slack && !meetings && !emails {
             print("Specify a sync target:")
             print("  --finance    SimpleFin + QBO only")
             print("  --files      VRAM filesystem")
             print("  --slack      Slack exports")
             print("  --meetings   Meeting transcripts")
+            print("  --emails     Email JSON files")
             print("  --all        All data sources")
             return
         }
@@ -87,6 +91,18 @@ struct SyncCommand: AsyncParsableCommand {
             } catch {
                 print("  Slack: FAILED — \(error)")
                 errors.append(("slack", error))
+            }
+        }
+
+        if emails || all {
+            print("Syncing email JSON files...")
+            do {
+                let client = IMAPClient(dbPool: dbManager.dbPool)
+                let count = try client.sync()
+                print("  Emails: \(count) new email chunks")
+            } catch {
+                print("  Emails: FAILED — \(error)")
+                errors.append(("emails", error))
             }
         }
 

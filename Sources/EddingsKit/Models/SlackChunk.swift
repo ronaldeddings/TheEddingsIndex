@@ -14,6 +14,15 @@ public struct SlackChunk: Codable, Sendable, Identifiable, FetchableRecord, Pers
     public var hasReactions: Bool = false
     public var threadTs: String?
     public var isThreadReply: Bool = false
+    public var userIds: String?
+    public var realNames: String?
+    public var companies: String?
+    public var quarter: Int?
+    public var messageCount: Int?
+    public var isEdited: Bool = false
+    public var replyCount: Int = 0
+    public var emojiReactions: String?
+    public var chunkIndex: Int?
 
     public static let databaseTableName = "slackChunks"
 
@@ -33,7 +42,16 @@ public struct SlackChunk: Codable, Sendable, Identifiable, FetchableRecord, Pers
         hasFiles: Bool = false,
         hasReactions: Bool = false,
         threadTs: String? = nil,
-        isThreadReply: Bool = false
+        isThreadReply: Bool = false,
+        userIds: String? = nil,
+        realNames: String? = nil,
+        companies: String? = nil,
+        quarter: Int? = nil,
+        messageCount: Int? = nil,
+        isEdited: Bool = false,
+        replyCount: Int = 0,
+        emojiReactions: String? = nil,
+        chunkIndex: Int? = nil
     ) {
         self.id = id
         self.channel = channel
@@ -47,5 +65,14 @@ public struct SlackChunk: Codable, Sendable, Identifiable, FetchableRecord, Pers
         self.hasReactions = hasReactions
         self.threadTs = threadTs
         self.isThreadReply = isThreadReply
+        self.userIds = userIds
+        self.realNames = realNames
+        self.companies = companies
+        self.quarter = quarter
+        self.messageCount = messageCount
+        self.isEdited = isEdited
+        self.replyCount = replyCount
+        self.emojiReactions = emojiReactions
+        self.chunkIndex = chunkIndex
     }
 }

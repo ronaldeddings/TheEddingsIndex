@@ -5,9 +5,12 @@ public struct SearchResult: Codable, Sendable, Identifiable {
     public let sourceTable: SourceTable
     public let title: String
     public let snippet: String?
+    public let fullContent: String?
     public let date: Date?
     public let score: Double
     public let metadata: [String: String]?
+    public let sourceLocator: String?
+    public let speakers: [String]?
 
     public enum SourceTable: String, Codable, Sendable {
         case documents

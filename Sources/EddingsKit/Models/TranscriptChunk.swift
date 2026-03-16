@@ -11,6 +11,10 @@ public struct TranscriptChunk: Codable, Sendable, Identifiable, FetchableRecord,
     public var meetingId: String?
     public var year: Int?
     public var month: Int?
+    public var quarter: Int?
+    public var startTime: String?
+    public var endTime: String?
+    public var speakerConfidence: Double?
 
     public static let databaseTableName = "transcriptChunks"
 
@@ -27,7 +31,11 @@ public struct TranscriptChunk: Codable, Sendable, Identifiable, FetchableRecord,
         speakerName: String? = nil,
         meetingId: String? = nil,
         year: Int? = nil,
-        month: Int? = nil
+        month: Int? = nil,
+        quarter: Int? = nil,
+        startTime: String? = nil,
+        endTime: String? = nil,
+        speakerConfidence: Double? = nil
     ) {
         self.id = id
         self.filePath = filePath
@@ -38,5 +46,9 @@ public struct TranscriptChunk: Codable, Sendable, Identifiable, FetchableRecord,
         self.meetingId = meetingId
         self.year = year
         self.month = month
+        self.quarter = quarter
+        self.startTime = startTime
+        self.endTime = endTime
+        self.speakerConfidence = speakerConfidence
     }
 }
