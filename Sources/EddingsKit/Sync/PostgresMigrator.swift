@@ -1,19 +1,23 @@
 import Foundation
 import GRDB
+import USearch
 import os
 
 public struct PostgresMigrator: Sendable {
     private let dbManager: DatabaseManager
+    private let vectorIndex: VectorIndex?
     private let pgPort: Int
     private let pgDatabase: String
     private let logger = Logger(subsystem: "com.hackervalley.eddingsindex", category: "migrate")
 
     public init(
         dbManager: DatabaseManager,
+        vectorIndex: VectorIndex? = nil,
         pgPort: Int = 4432,
         pgDatabase: String = "vram_embeddings"
     ) {
         self.dbManager = dbManager
+        self.vectorIndex = vectorIndex
         self.pgPort = pgPort
         self.pgDatabase = pgDatabase
     }
@@ -26,6 +30,7 @@ public struct PostgresMigrator: Sendable {
         public var contacts: Int = 0
         public var companies: Int = 0
         public var meetings: Int = 0
+        public var vectors: Int = 0
     }
 
     public func migrate() throws -> MigrationResult {
@@ -46,7 +51,6 @@ public struct PostgresMigrator: Sendable {
 
         logger.info("Rebuilding FTS5 indexes")
         try rebuildFTSTables()
-
 
         logger.info("Migration complete: docs=\(result.documents) emails=\(result.emailChunks) slack=\(result.slackChunks) transcripts=\(result.transcriptChunks) contacts=\(result.contacts) companies=\(result.companies) meetings=\(result.meetings)")
 
@@ -353,6 +357,71 @@ public struct PostgresMigrator: Sendable {
         }
 
         logger.info("Migrated \(count) meetings")
+        return count
+    }
+
+    public func migrateVectors(vectorIndex: VectorIndex) async throws -> Int {
+        logger.info("Migrating 4096-dim Qwen embeddings...")
+        var vectorKey: USearchKey = 1
+        var count = 0
+
+        let sources: [(table: String, sourceTable: String, batchSize: Int)] = [
+            ("chunks", "transcriptChunks", 5000),
+            ("email_chunks", "emailChunks", 5000),
+            ("slack_chunks", "slackChunks", 5000),
+        ]
+
+        for source in sources {
+            let contentFilter = source.table == "chunks" ? "AND content_type = 'transcript'" : ""
+            let countStr = try psqlExport(query: "SELECT count(*) FROM \(source.table) WHERE embedding IS NOT NULL \(contentFilter)")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let totalRows = Int(countStr) ?? 0
+            logger.info("  \(source.sourceTable): \(totalRows) vectors to migrate")
+
+            var offset = 0
+            while offset < totalRows {
+                let query = "SELECT id, embedding::text FROM \(source.table) WHERE embedding IS NOT NULL \(contentFilter) ORDER BY id LIMIT \(source.batchSize) OFFSET \(offset)"
+                let output = try psqlExport(query: query)
+
+                var keyMaps: [VectorKeyMap] = []
+
+                for line in output.split(separator: "\n") {
+                    let fields = line.split(separator: Self.fieldSepChar, omittingEmptySubsequences: false).map(String.init)
+                    guard fields.count >= 2 else { continue }
+                    guard let sourceId = Int64(fields[0]) else { continue }
+
+                    let vecStr = fields[1]
+                        .trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+                    let floats = vecStr.split(separator: ",").compactMap { Float($0.trimmingCharacters(in: .whitespaces)) }
+                    guard floats.count == 4096 else { continue }
+
+                    try await vectorIndex.add4096(key: vectorKey, vector: floats)
+
+                    keyMaps.append(VectorKeyMap(
+                        vectorKey: Int64(vectorKey),
+                        sourceTable: source.sourceTable,
+                        sourceId: sourceId
+                    ))
+                    vectorKey += 1
+                    count += 1
+                }
+
+                let batch = keyMaps
+                try await dbManager.dbPool.write { db in
+                    for var km in batch {
+                        try km.insert(db, onConflict: .ignore)
+                    }
+                }
+
+                offset += source.batchSize
+                if count % 10000 == 0 || offset >= totalRows {
+                    logger.info("  vectors: \(count) migrated...")
+                }
+            }
+        }
+
+        try await vectorIndex.save()
+        logger.info("Migrated \(count) vectors, USearch index saved")
         return count
     }
 
