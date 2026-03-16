@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Eddings Index — Relationships</title>
+<style>
+:root {
+  --bg-deep: #0a0a0f;
+  --bg-surface: #131318;
+  --bg-card: #1a1a22;
+  --bg-elevated: #222230;
+  --bg-hover: #2a2a3a;
+  --border: #1f1f2e;
+  --border-subtle: #18181f;
+  --text-primary: #ebebf0;
+  --text-secondary: #8b8b9e;
+  --text-tertiary: #5c5c70;
+  --accent-gold: #e8a849;
+  --accent-indigo: #7c8cf5;
+  --accent-emerald: #3dd68c;
+  --accent-rose: #f472b6;
+  --accent-violet: #a78bfa;
+  --accent-blue: #60a5fa;
+  --accent-red: #f87171;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --transition: 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  height: 100vh;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  height: 100vh;
+}
+
+/* ─── Left Panel ─── */
+.list-panel {
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.list-header {
+  padding: 24px 20px 16px;
+  flex-shrink: 0;
+}
+
+.list-header h2 {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  margin-bottom: 4px;
+}
+
+.list-header p {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-bottom: 16px;
+}
+
+.search-bar {
+  width: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 9px 14px;
+  font-size: 13px;
+  color: var(--text-primary);
+  outline: none;
+  transition: all var(--transition);
+  font-family: inherit;
+  margin-bottom: 14px;
+}
+
+.search-bar::placeholder { color: var(--text-tertiary); }
+.search-bar:focus { border-color: rgba(232,168,73,0.3); box-shadow: 0 0 0 3px rgba(232,168,73,0.08); }
+
+.view-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-card);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+}
+
+.view-tab {
+  flex: 1;
+  padding: 6px 0;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.view-tab:hover { color: var(--text-secondary); }
+.view-tab.active { background: var(--bg-elevated); color: var(--text-primary); }
+
+.list-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+}
+
+.list-body::-webkit-scrollbar { width: 6px; }
+.list-body::-webkit-scrollbar-track { background: transparent; }
+.list-body::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 3px; }
+
+.list-section-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 16px 8px 8px;
+}
+
+.contact-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition);
+  position: relative;
+}
+
+.contact-card:hover { background: var(--bg-card); }
+.contact-card.selected { background: rgba(232,168,73,0.08); }
+
+.contact-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.contact-avatar.high { background: rgba(232,168,73,0.18); color: var(--accent-gold); }
+.contact-avatar.medium { background: rgba(124,140,245,0.18); color: var(--accent-indigo); }
+.contact-avatar.low { background: rgba(92,92,112,0.2); color: var(--text-tertiary); }
+
+.depth-ring {
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+}
+
+.contact-avatar.high .depth-ring { border-color: rgba(232,168,73,0.4); }
+.contact-avatar.medium .depth-ring { border-color: rgba(124,140,245,0.3); }
+
+.contact-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.contact-name {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.contact-role {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.contact-stats {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.stat-chip {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.stat-chip.email { background: rgba(232,168,73,0.12); color: var(--accent-gold); }
+.stat-chip.meeting { background: rgba(167,139,250,0.12); color: var(--accent-violet); }
+.stat-chip.slack { background: rgba(124,140,245,0.12); color: var(--accent-indigo); }
+
+.fading-indicator {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-red);
+  opacity: 0.8;
+}
+
+/* ─── Detail Panel ─── */
+.detail-panel {
+  background: var(--bg-surface);
+  overflow-y: auto;
+}
+
+.detail-panel::-webkit-scrollbar { width: 6px; }
+.detail-panel::-webkit-scrollbar-track { background: transparent; }
+.detail-panel::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 3px; }
+
+.detail-hero {
+  padding: 40px 36px 32px;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.detail-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 700;
+  margin: 0 auto 16px;
+}
+
+.detail-avatar.high { background: rgba(232,168,73,0.18); color: var(--accent-gold); border: 2px solid rgba(232,168,73,0.3); }
+
+.detail-name {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  margin-bottom: 4px;
+}
+
+.detail-role {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.detail-stats-row {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+}
+
+.detail-stat {
+  text-align: center;
+}
+
+.detail-stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.detail-stat-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.detail-stat.email .detail-stat-value { color: var(--accent-gold); }
+.detail-stat.meeting .detail-stat-value { color: var(--accent-violet); }
+.detail-stat.slack .detail-stat-value { color: var(--accent-indigo); }
+
+/* Relationship strength bar */
+.strength-section {
+  padding: 20px 36px;
+  border-bottom: 1px solid var(--border);
+}
+
+.strength-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+}
+
+.strength-label span { color: var(--accent-gold); font-weight: 600; }
+
+.strength-bar {
+  height: 6px;
+  background: var(--bg-elevated);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.strength-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent-gold), #f0c060);
+  transition: width 1s ease;
+}
+
+.strength-context {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 10px;
+  line-height: 1.5;
+}
+
+.strength-context strong {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* AI Insight */
+.ai-block {
+  padding: 20px 36px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ai-block-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-indigo);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+
+.ai-block-header::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background: var(--accent-indigo);
+  border-radius: 50%;
+}
+
+.ai-block-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.ai-block-text strong {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* Timeline */
+.timeline-section {
+  padding: 24px 36px;
+}
+
+.timeline-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 16px;
+}
+
+.timeline {
+  position: relative;
+  padding-left: 24px;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 4px;
+  bottom: 4px;
+  width: 1px;
+  background: var(--border);
+}
+
+.timeline-item {
+  position: relative;
+  padding-bottom: 20px;
+}
+
+.timeline-item:last-child { padding-bottom: 0; }
+
+.timeline-dot {
+  position: absolute;
+  left: -21px;
+  top: 4px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-surface);
+}
+
+.timeline-dot.email { background: var(--accent-gold); }
+.timeline-dot.meeting { background: var(--accent-violet); }
+.timeline-dot.slack { background: var(--accent-indigo); }
+.timeline-dot.file { background: var(--accent-emerald); }
+
+.timeline-date {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-bottom: 4px;
+}
+
+.timeline-content {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.timeline-content strong {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.timeline-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: 10px;
+  margin-top: 4px;
+}
+
+.timeline-source.email { background: rgba(232,168,73,0.12); color: var(--accent-gold); }
+.timeline-source.meeting { background: rgba(167,139,250,0.12); color: var(--accent-violet); }
+.timeline-source.slack { background: rgba(124,140,245,0.12); color: var(--accent-indigo); }
+.timeline-source.file { background: rgba(61,214,140,0.12); color: var(--accent-emerald); }
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  text-decoration: none;
+  padding: 16px 20px 0;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in { animation: fadeIn 0.3s ease forwards; }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <!-- ═══════ CONTACT LIST ═══════ -->
+  <div class="list-panel">
+    <div class="list-header">
+      <a href="ei-app.html" class="back-link" style="padding:0;margin-bottom:12px;display:inline-flex">← Back to Search</a>
+      <h2>Relationships</h2>
+      <p>847 contacts across email, meetings, and Slack</p>
+      <input type="text" class="search-bar" placeholder="Find a person or company..." id="contactSearch" oninput="filterContacts(this.value)" />
+      <div class="view-tabs">
+        <div class="view-tab active" onclick="setTab(this, 'depth')">By Depth</div>
+        <div class="view-tab" onclick="setTab(this, 'recent')">Recent</div>
+        <div class="view-tab" onclick="setTab(this, 'fading')">Fading</div>
+        <div class="view-tab" onclick="setTab(this, 'companies')">Companies</div>
+      </div>
+    </div>
+    <div class="list-body" id="contactList"></div>
+  </div>
+
+  <!-- ═══════ DETAIL ═══════ -->
+  <div class="detail-panel" id="detailPanel">
+    <div class="detail-hero fade-in">
+      <div class="detail-avatar high">EH</div>
+      <div class="detail-name">Emily Humphrey</div>
+      <div class="detail-role">COO, Hacker Valley Media</div>
+      <div class="detail-stats-row">
+        <div class="detail-stat email">
+          <div class="detail-stat-value">127</div>
+          <div class="detail-stat-label">Emails</div>
+        </div>
+        <div class="detail-stat meeting">
+          <div class="detail-stat-value">84</div>
+          <div class="detail-stat-label">Meetings</div>
+        </div>
+        <div class="detail-stat slack">
+          <div class="detail-stat-value">1,247</div>
+          <div class="detail-stat-label">Messages</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="strength-section fade-in">
+      <div class="strength-label">
+        Relationship Strength <span>Deep Partnership</span>
+      </div>
+      <div class="strength-bar">
+        <div class="strength-fill" style="width:95%"></div>
+      </div>
+      <div class="strength-context">
+        Emily is your <strong>most frequent collaborator</strong> — you've communicated across
+        all 3 channels in the last 7 days. Average response time: <strong>12 minutes</strong>.
+        First interaction: <strong>August 2021</strong> (4.5 years ago).
+      </div>
+    </div>
+
+    <div class="ai-block fade-in">
+      <div class="ai-block-header">PAI Relationship Insight</div>
+      <div class="ai-block-text">
+        Your communication pattern with Emily has <strong>shifted toward strategic topics</strong>
+        in Q1 2026 — 60% of recent conversations involve deals and revenue (up from 35% in Q4 2025).
+        This aligns with the Freedom Acceleration focus. Emily mentioned capacity concerns in
+        your last 1:1 — consider discussing <strong>hiring a freelance editor</strong> before
+        the CrowdStrike deal closes.
+      </div>
+    </div>
+
+    <div class="timeline-section fade-in">
+      <div class="timeline-title">Interaction Timeline</div>
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="timeline-dot slack"></div>
+          <div class="timeline-date">Today · 9:12 AM</div>
+          <div class="timeline-content">
+            <strong>#general standup</strong> — Flagged the Dr. Sharma clip at 31:20 for social. Confirmed Optro call Wednesday 10 AM CT.
+          </div>
+          <div class="timeline-source slack">Slack</div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot slack"></div>
+          <div class="timeline-date">Yesterday · 11:15 AM</div>
+          <div class="timeline-content">
+            <strong>#hvm-deals</strong> — Brought in CrowdStrike lead. Dana Liu, Senior Partnerships. Setting up intro call next week. Deck draft by EOD Thursday.
+          </div>
+          <div class="timeline-source slack">Slack</div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot meeting"></div>
+          <div class="timeline-date">Yesterday · 2:00 PM</div>
+          <div class="timeline-content">
+            <strong>CISO Roundtable Prep</strong> — 45 min with Marcus. Confirmed 4 CISO panelists. Emily handling calendar invites. Live recording March 28.
+          </div>
+          <div class="timeline-source meeting">Meeting · 45 min</div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot email"></div>
+          <div class="timeline-date">Mar 13 · 4:22 PM</div>
+          <div class="timeline-content">
+            <strong>Panel Guest Confirmations</strong> — All 4 CISOs confirmed for the roundtable. Forwarded bios and headshots for the promo assets.
+          </div>
+          <div class="timeline-source email">Email</div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot meeting"></div>
+          <div class="timeline-date">Mar 12 · 3:30 PM</div>
+          <div class="timeline-content">
+            <strong>Emily 1:1 — Content Calendar</strong> — Pipeline strong: 8 episodes confirmed, 3 in negotiation. Discussed hiring a freelance editor for surge capacity. Optro alone covers video production budget.
+          </div>
+          <div class="timeline-source meeting">Meeting · 28 min</div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot email"></div>
+          <div class="timeline-date">Mar 12 · 8:30 AM</div>
+          <div class="timeline-content">
+            <strong>HVM Q1 Revenue Report</strong> — $62K revenue, 94 customers, 84% margin. Revenue up 12% over Q4. Both feeling optimistic about Q2.
+          </div>
+          <div class="timeline-source email">Email</div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot slack"></div>
+          <div class="timeline-date">Mar 11 · 2:15 PM</div>
+          <div class="timeline-content">
+            <strong>#hvm-content</strong> — Shared new Remotion template for episode clips. Asked Marcus to test with the latest episode.
+          </div>
+          <div class="timeline-source slack">Slack</div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot file"></div>
+          <div class="timeline-date">Mar 10 · 10:00 AM</div>
+          <div class="timeline-content">
+            <strong>Optro-Proposal-v2.pdf</strong> — Collaborated on the revised sponsorship proposal. Emily added audience analytics section.
+          </div>
+          <div class="timeline-source file">File</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const CONTACTS = [
+  { id:1, name:'Emily Humphrey', role:'COO, Hacker Valley Media', emails:127, meetings:84, slack:1247, depth:'high', lastSeen:'Today', company:'HVM' },
+  { id:2, name:'Marcus Webb', role:'Content Lead, Hacker Valley', emails:45, meetings:32, slack:892, depth:'high', lastSeen:'Today', company:'HVM' },
+  { id:3, name:'Sarah Chen', role:'Head of Partnerships, Optro', emails:18, meetings:4, slack:0, depth:'medium', lastSeen:'Yesterday', company:'Optro' },
+  { id:4, name:'Jess Park', role:'DevRel Lead, Mozilla', emails:89, meetings:26, slack:45, depth:'high', lastSeen:'2 days ago', company:'Mozilla' },
+  { id:5, name:'Dr. Anya Sharma', role:'CISO, Meridian Health', emails:8, meetings:2, slack:0, depth:'medium', lastSeen:'2 days ago', company:'Meridian Health' },
+  { id:6, name:'Vanessa Torres', role:'Executive Director, CISO Connect', emails:12, meetings:3, slack:0, depth:'medium', lastSeen:'4 days ago', company:'CISO Connect' },
+  { id:7, name:'Dana Liu', role:'Senior Partnerships, CrowdStrike', emails:2, meetings:0, slack:0, depth:'low', lastSeen:'2 days ago', company:'CrowdStrike', isNew:true },
+  { id:8, name:'James Whitfield', role:'VP Sales, Optro', emails:6, meetings:1, slack:0, depth:'medium', lastSeen:'Mar 3', company:'Optro' },
+  { id:9, name:'Chris Cochran', role:'Co-host, Hacker Valley', emails:67, meetings:45, slack:2100, depth:'high', lastSeen:'2 weeks ago', fading:true, company:'HVM' },
+  { id:10, name:'David Spark', role:'Host, CISO Series', emails:34, meetings:8, slack:12, depth:'medium', lastSeen:'3 weeks ago', fading:true, company:'CISO Series' },
+  { id:11, name:'Lisa Chen', role:'CISO, Fortuna Bank', emails:15, meetings:6, slack:0, depth:'medium', lastSeen:'10 days ago', company:'Fortuna Bank' },
+  { id:12, name:'Marcus Torres', role:'Fidelity Advisor', emails:8, meetings:2, slack:0, depth:'low', lastSeen:'Feb 28', company:'Fidelity' },
+  { id:13, name:'Kevin Johnson', role:'CISO, MedTech Alliance', emails:22, meetings:5, slack:0, depth:'medium', lastSeen:'Mar 8', company:'MedTech Alliance' },
+  { id:14, name:'Priya Kapoor', role:'Marketing VP, SentinelOne', emails:11, meetings:3, slack:0, depth:'medium', lastSeen:'Mar 1', company:'SentinelOne' },
+  { id:15, name:'Tyler Reed', role:'Audio Engineer (Freelance)', emails:29, meetings:12, slack:156, depth:'medium', lastSeen:'Mar 10', company:'Freelance' },
+];
+
+let currentTab = 'depth';
+let selectedContact = 1;
+
+function getInitials(name) {
+  return name.split(' ').map(w => w[0]).join('');
+}
+
+function totalInteractions(c) {
+  return c.emails + c.meetings + c.slack;
+}
+
+function renderContacts(filter = '') {
+  const list = document.getElementById('contactList');
+  let contacts = [...CONTACTS];
+  if (filter) {
+    const q = filter.toLowerCase();
+    contacts = contacts.filter(c =>
+      c.name.toLowerCase().includes(q) ||
+      c.role.toLowerCase().includes(q) ||
+      c.company.toLowerCase().includes(q)
+    );
+  }
+
+  if (currentTab === 'depth') {
+    contacts.sort((a,b) => totalInteractions(b) - totalInteractions(a));
+  } else if (currentTab === 'fading') {
+    contacts = contacts.filter(c => c.fading);
+  } else if (currentTab === 'companies') {
+    contacts.sort((a,b) => a.company.localeCompare(b.company));
+  }
+
+  let html = '';
+  let lastCompany = '';
+
+  if (currentTab === 'depth' && !filter) {
+    const inner = contacts.filter(c => totalInteractions(c) > 200);
+    const growing = contacts.filter(c => totalInteractions(c) <= 200 && totalInteractions(c) > 20);
+    const peripheral = contacts.filter(c => totalInteractions(c) <= 20);
+
+    html += `<div class="list-section-title">Inner Circle (${inner.length})</div>`;
+    html += inner.map(c => contactCardHtml(c)).join('');
+    html += `<div class="list-section-title">Growing (${growing.length})</div>`;
+    html += growing.map(c => contactCardHtml(c)).join('');
+    html += `<div class="list-section-title">Peripheral (${peripheral.length})</div>`;
+    html += peripheral.map(c => contactCardHtml(c)).join('');
+  } else if (currentTab === 'companies' && !filter) {
+    contacts.forEach(c => {
+      if (c.company !== lastCompany) {
+        html += `<div class="list-section-title">${c.company}</div>`;
+        lastCompany = c.company;
+      }
+      html += contactCardHtml(c);
+    });
+  } else if (currentTab === 'fading') {
+    html += `<div class="list-section-title">Fading Connections</div>`;
+    if (contacts.length === 0) {
+      html += `<div style="padding:20px;text-align:center;color:var(--text-tertiary);font-size:13px">No fading connections detected right now.</div>`;
+    }
+    html += contacts.map(c => contactCardHtml(c)).join('');
+  } else {
+    html += contacts.map(c => contactCardHtml(c)).join('');
+  }
+
+  list.innerHTML = html;
+}
+
+function contactCardHtml(c) {
+  const sel = c.id === selectedContact ? 'selected' : '';
+  const stats = [];
+  if (c.emails > 0) stats.push(`<span class="stat-chip email">✉ ${c.emails}</span>`);
+  if (c.meetings > 0) stats.push(`<span class="stat-chip meeting">◉ ${c.meetings}</span>`);
+  if (c.slack > 0) stats.push(`<span class="stat-chip slack">◈ ${c.slack > 999 ? (c.slack/1000).toFixed(1)+'K' : c.slack}</span>`);
+  const fadingDot = c.fading ? '<div class="fading-indicator" title="Fading — no interaction in 14+ days"></div>' : '';
+  const newBadge = c.isNew ? '<span style="font-size:10px;color:var(--accent-emerald);font-weight:600;margin-left:4px">NEW</span>' : '';
+
+  return `
+    <div class="contact-card ${sel}" onclick="selectContact(${c.id})">
+      ${fadingDot}
+      <div class="contact-avatar ${c.depth}">
+        <div class="depth-ring"></div>
+        ${getInitials(c.name)}
+      </div>
+      <div class="contact-info">
+        <div class="contact-name">${c.name}${newBadge}</div>
+        <div class="contact-role">${c.role}</div>
+      </div>
+      <div class="contact-stats">${stats.join('')}</div>
+    </div>
+  `;
+}
+
+function selectContact(id) {
+  selectedContact = id;
+  renderContacts(document.getElementById('contactSearch').value);
+}
+
+function filterContacts(q) {
+  renderContacts(q);
+}
+
+function setTab(el, tab) {
+  currentTab = tab;
+  document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderContacts(document.getElementById('contactSearch').value);
+}
+
+renderContacts();
+</script>
+</body>
+</html>

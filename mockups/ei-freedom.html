@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Eddings Index — Freedom Dashboard</title>
+<style>
+:root {
+  --bg-deep: #0a0a0f;
+  --bg-surface: #131318;
+  --bg-card: #1a1a22;
+  --bg-elevated: #222230;
+  --bg-hover: #2a2a3a;
+  --border: #1f1f2e;
+  --border-subtle: #18181f;
+  --text-primary: #ebebf0;
+  --text-secondary: #8b8b9e;
+  --text-tertiary: #5c5c70;
+  --accent-gold: #e8a849;
+  --accent-gold-dim: rgba(232,168,73,0.15);
+  --accent-indigo: #7c8cf5;
+  --accent-emerald: #3dd68c;
+  --accent-rose: #f472b6;
+  --accent-violet: #a78bfa;
+  --accent-blue: #60a5fa;
+  --accent-red: #f87171;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --transition: 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+.dashboard {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+
+.header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 36px;
+}
+
+.header-left h1 {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  margin-bottom: 4px;
+}
+
+.header-left p {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.header-right {
+  display: flex;
+  gap: 10px;
+}
+
+.period-pill {
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.period-pill:hover { background: var(--bg-card); color: var(--text-primary); }
+.period-pill.active { background: var(--accent-gold-dim); border-color: rgba(232,168,73,0.3); color: var(--accent-gold); }
+
+/* ─── Velocity Hero ─── */
+.velocity-hero {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 40px;
+  margin-bottom: 24px;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 48px;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.velocity-hero::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(232,168,73,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.gauge-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.gauge {
+  width: 220px;
+  height: 220px;
+  position: relative;
+}
+
+.gauge svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.gauge-bg {
+  fill: none;
+  stroke: var(--bg-elevated);
+  stroke-width: 10;
+}
+
+.gauge-fill {
+  fill: none;
+  stroke: url(#goldGradient);
+  stroke-width: 10;
+  stroke-linecap: round;
+  stroke-dasharray: 565.48;
+  stroke-dashoffset: 300;
+  transition: stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.gauge-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.gauge-value {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  color: var(--accent-gold);
+}
+
+.gauge-label {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.gauge-percent {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.velocity-details {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.velocity-headline {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+  line-height: 1.4;
+}
+
+.velocity-headline span {
+  color: var(--accent-gold);
+}
+
+.velocity-subtext {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.velocity-subtext strong {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.velocity-sources {
+  display: flex;
+  gap: 16px;
+}
+
+.source-block {
+  flex: 1;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+}
+
+.source-block-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.source-block-value {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+.source-block-sub {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.source-block.positive .source-block-value { color: var(--accent-emerald); }
+.source-block.neutral .source-block-value { color: var(--text-primary); }
+
+/* ─── Grid ─── */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.card-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.card-action {
+  font-size: 11px;
+  color: var(--accent-indigo);
+  cursor: pointer;
+}
+
+/* Net Worth */
+.networth-value {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  margin-bottom: 4px;
+}
+
+.networth-change {
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 20px;
+}
+
+.networth-change.positive { color: var(--accent-emerald); }
+.networth-change.negative { color: var(--accent-red); }
+
+.networth-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.nw-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.nw-row-label {
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nw-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.nw-row-value {
+  font-weight: 500;
+}
+
+.nw-bar {
+  height: 6px;
+  background: var(--bg-elevated);
+  border-radius: 3px;
+  margin-top: 12px;
+  display: flex;
+  overflow: hidden;
+  gap: 2px;
+}
+
+.nw-bar-segment {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 1s ease;
+}
+
+/* Spending */
+.spending-categories {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.spend-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.spend-cat {
+  width: 90px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.spend-bar-container {
+  flex: 1;
+  height: 8px;
+  background: var(--bg-elevated);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.spend-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 1s ease;
+}
+
+.spend-amount {
+  width: 70px;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.spend-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.spend-total-label { color: var(--text-secondary); }
+.spend-total-value { font-weight: 600; font-size: 15px; }
+
+/* Debt */
+.debt-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.debt-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.debt-name {
+  width: 130px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.debt-bar-container {
+  flex: 1;
+  height: 8px;
+  background: var(--bg-elevated);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.debt-bar {
+  height: 100%;
+  border-radius: 4px;
+  background: var(--accent-rose);
+  transition: width 1s ease;
+}
+
+.debt-amount {
+  width: 80px;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent-rose);
+  flex-shrink: 0;
+}
+
+.debt-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+}
+
+.debt-total-label { font-size: 13px; color: var(--text-secondary); }
+.debt-total-value { font-size: 15px; font-weight: 600; color: var(--accent-rose); }
+
+.debt-payoff {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 8px;
+}
+
+/* Transactions */
+.transactions-card {
+  grid-column: 1 / -1;
+}
+
+.txn-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.txn-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.txn-row:last-child { border-bottom: none; }
+
+.txn-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.txn-icon.income { background: rgba(61,214,140,0.12); }
+.txn-icon.expense { background: rgba(244,114,182,0.12); }
+.txn-icon.transfer { background: rgba(124,140,245,0.12); }
+
+.txn-info {
+  flex: 1;
+}
+
+.txn-name {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.txn-meta {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  display: flex;
+  gap: 8px;
+}
+
+.txn-category {
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 500;
+  background: var(--bg-elevated);
+  color: var(--text-tertiary);
+}
+
+.txn-amount {
+  font-size: 14px;
+  font-weight: 600;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.txn-amount.positive { color: var(--accent-emerald); }
+.txn-amount.negative { color: var(--text-primary); }
+
+/* AI Insight */
+.ai-insight {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent-indigo);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.ai-insight-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.ai-insight-content {
+  flex: 1;
+}
+
+.ai-insight-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-indigo);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.ai-insight-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.ai-insight-text strong {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* Projection */
+.projection {
+  text-align: center;
+  padding: 28px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: 24px;
+}
+
+.projection-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+}
+
+.projection-date {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  margin-bottom: 4px;
+}
+
+.projection-date span {
+  color: var(--accent-gold);
+}
+
+.projection-sub {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* Sparkline */
+.sparkline {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 40px;
+  margin-top: 12px;
+}
+
+.spark-bar {
+  flex: 1;
+  border-radius: 2px;
+  min-height: 4px;
+  transition: height 0.5s ease;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-up {
+  animation: fadeUp 0.4s ease forwards;
+  opacity: 0;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  text-decoration: none;
+  margin-bottom: 20px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition);
+}
+
+.back-link:hover {
+  background: var(--bg-card);
+  color: var(--text-secondary);
+}
+</style>
+</head>
+<body>
+
+<div class="dashboard">
+  <a href="ei-app.html" class="back-link">← Back to Search</a>
+
+  <div class="header animate-up" style="animation-delay: 0ms">
+    <div class="header-left">
+      <h1>Freedom Dashboard</h1>
+      <p>Your path from W-2 to financial independence</p>
+    </div>
+    <div class="header-right">
+      <div class="period-pill" onclick="this.parentElement.querySelectorAll('.period-pill').forEach(p=>p.classList.remove('active'));this.classList.add('active')">Week</div>
+      <div class="period-pill active" onclick="this.parentElement.querySelectorAll('.period-pill').forEach(p=>p.classList.remove('active'));this.classList.add('active')">Month</div>
+      <div class="period-pill" onclick="this.parentElement.querySelectorAll('.period-pill').forEach(p=>p.classList.remove('active'));this.classList.add('active')">Quarter</div>
+      <div class="period-pill" onclick="this.parentElement.querySelectorAll('.period-pill').forEach(p=>p.classList.remove('active'));this.classList.add('active')">Year</div>
+    </div>
+  </div>
+
+  <!-- Freedom Velocity Hero -->
+  <div class="velocity-hero animate-up" style="animation-delay: 80ms">
+    <div class="gauge-container">
+      <div class="gauge">
+        <svg viewBox="0 0 200 200">
+          <defs>
+            <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" style="stop-color:#d4942e" />
+              <stop offset="100%" style="stop-color:#f0c060" />
+            </linearGradient>
+          </defs>
+          <circle class="gauge-bg" cx="100" cy="100" r="90" />
+          <circle class="gauge-fill" cx="100" cy="100" r="90" />
+        </svg>
+        <div class="gauge-center">
+          <div class="gauge-value">$2,847</div>
+          <div class="gauge-label">of $6,058 / week</div>
+          <div class="gauge-percent">47%</div>
+        </div>
+      </div>
+    </div>
+    <div class="velocity-details">
+      <div class="velocity-headline">
+        You need <span>$3,211 more per week</span> to replace your W-2
+      </div>
+      <div class="velocity-subtext">
+        At current trajectory, non-W2 income covers <strong>47% of your freedom target</strong>.
+        HVM sponsorship revenue is the primary driver. Closing the Optro deal ($45K) and
+        CrowdStrike pipeline ($60K+) would push Q2 velocity to <strong>78%</strong>.
+      </div>
+      <div class="velocity-sources">
+        <div class="source-block positive">
+          <div class="source-block-label">HVM Clients</div>
+          <div class="source-block-value">$2,200</div>
+          <div class="source-block-sub">Sponsorships + services</div>
+        </div>
+        <div class="source-block positive">
+          <div class="source-block-label">Affiliate</div>
+          <div class="source-block-value">$647</div>
+          <div class="source-block-sub">Podcast affiliate links</div>
+        </div>
+        <div class="source-block neutral">
+          <div class="source-block-label">W-2 (Mozilla)</div>
+          <div class="source-block-value">$4,519</div>
+          <div class="source-block-sub">$235K / 52 weeks</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Projection -->
+  <div class="projection animate-up" style="animation-delay: 120ms">
+    <div class="projection-label">At current velocity, you replace your W-2 income by</div>
+    <div class="projection-date"><span>November 2027</span></div>
+    <div class="projection-sub">If CrowdStrike closes → <strong>June 2027</strong> · If Optro + CrowdStrike close → <strong>March 2027</strong></div>
+  </div>
+
+  <!-- AI Insight -->
+  <div class="ai-insight animate-up" style="animation-delay: 160ms">
+    <div class="ai-insight-icon">💡</div>
+    <div class="ai-insight-content">
+      <div class="ai-insight-title">PAI Financial Insight</div>
+      <div class="ai-insight-text">
+        Your <strong>Q1 revenue is up 12% over Q4</strong> ($62K vs $55K), but your
+        savings rate dropped from 22% to 18% due to increased production costs.
+        The $5K CISO Connect speaking fee (Vanessa Torres invite) would cover
+        next month's production budget. Worth accepting?
+      </div>
+    </div>
+  </div>
+
+  <!-- Grid -->
+  <div class="grid">
+    <!-- Net Worth -->
+    <div class="card animate-up" style="animation-delay: 200ms">
+      <div class="card-header">
+        <div class="card-title">Net Worth</div>
+        <div class="card-action">View all accounts →</div>
+      </div>
+      <div class="networth-value">$89,490</div>
+      <div class="networth-change positive">▲ $1,434.55 today (+1.6%)</div>
+      <div class="networth-breakdown">
+        <div class="nw-row">
+          <div class="nw-row-label"><div class="nw-dot" style="background:var(--accent-emerald)"></div> Investments</div>
+          <div class="nw-row-value">$47,892</div>
+        </div>
+        <div class="nw-row">
+          <div class="nw-row-label"><div class="nw-dot" style="background:var(--accent-gold)"></div> Business (HVM)</div>
+          <div class="nw-row-value">$46,456</div>
+        </div>
+        <div class="nw-row">
+          <div class="nw-row-label"><div class="nw-dot" style="background:var(--accent-blue)"></div> Cash</div>
+          <div class="nw-row-value">$8,247</div>
+        </div>
+        <div class="nw-row">
+          <div class="nw-row-label"><div class="nw-dot" style="background:var(--accent-rose)"></div> Debt</div>
+          <div class="nw-row-value" style="color:var(--accent-rose)">-$13,105</div>
+        </div>
+      </div>
+      <div class="nw-bar">
+        <div class="nw-bar-segment" style="width:47%;background:var(--accent-emerald)"></div>
+        <div class="nw-bar-segment" style="width:35%;background:var(--accent-gold)"></div>
+        <div class="nw-bar-segment" style="width:8%;background:var(--accent-blue)"></div>
+        <div class="nw-bar-segment" style="width:10%;background:var(--accent-rose)"></div>
+      </div>
+      <div class="sparkline">
+        <div class="spark-bar" style="height:55%;background:rgba(61,214,140,0.3)"></div>
+        <div class="spark-bar" style="height:58%;background:rgba(61,214,140,0.3)"></div>
+        <div class="spark-bar" style="height:52%;background:rgba(61,214,140,0.3)"></div>
+        <div class="spark-bar" style="height:60%;background:rgba(61,214,140,0.3)"></div>
+        <div class="spark-bar" style="height:57%;background:rgba(61,214,140,0.3)"></div>
+        <div class="spark-bar" style="height:63%;background:rgba(61,214,140,0.3)"></div>
+        <div class="spark-bar" style="height:59%;background:rgba(61,214,140,0.3)"></div>
+        <div class="spark-bar" style="height:66%;background:rgba(61,214,140,0.3)"></div>
+        <div class="spark-bar" style="height:62%;background:rgba(61,214,140,0.3)"></div>
+        <div class="spark-bar" style="height:68%;background:rgba(61,214,140,0.3)"></div>
+        <div class="spark-bar" style="height:65%;background:rgba(61,214,140,0.3)"></div>
+        <div class="spark-bar" style="height:72%;background:rgba(61,214,140,0.4)"></div>
+        <div class="spark-bar" style="height:70%;background:rgba(61,214,140,0.4)"></div>
+        <div class="spark-bar" style="height:75%;background:var(--accent-emerald)"></div>
+      </div>
+    </div>
+
+    <!-- Spending -->
+    <div class="card animate-up" style="animation-delay: 240ms">
+      <div class="card-header">
+        <div class="card-title">March Spending</div>
+        <div class="card-action">Categorize →</div>
+      </div>
+      <div class="spending-categories">
+        <div class="spend-row">
+          <div class="spend-cat">Production</div>
+          <div class="spend-bar-container"><div class="spend-bar" style="width:75%;background:var(--accent-violet)"></div></div>
+          <div class="spend-amount">$2,840</div>
+        </div>
+        <div class="spend-row">
+          <div class="spend-cat">Software</div>
+          <div class="spend-bar-container"><div class="spend-bar" style="width:48%;background:var(--accent-indigo)"></div></div>
+          <div class="spend-amount">$1,814</div>
+        </div>
+        <div class="spend-row">
+          <div class="spend-cat">Food & Dining</div>
+          <div class="spend-bar-container"><div class="spend-bar" style="width:35%;background:var(--accent-gold)"></div></div>
+          <div class="spend-amount">$1,324</div>
+        </div>
+        <div class="spend-row">
+          <div class="spend-cat">Travel</div>
+          <div class="spend-bar-container"><div class="spend-bar" style="width:28%;background:var(--accent-blue)"></div></div>
+          <div class="spend-amount">$1,060</div>
+        </div>
+        <div class="spend-row">
+          <div class="spend-cat">Home</div>
+          <div class="spend-bar-container"><div class="spend-bar" style="width:22%;background:var(--accent-emerald)"></div></div>
+          <div class="spend-amount">$832</div>
+        </div>
+        <div class="spend-row">
+          <div class="spend-cat">Other</div>
+          <div class="spend-bar-container"><div class="spend-bar" style="width:15%;background:var(--text-tertiary)"></div></div>
+          <div class="spend-amount">$567</div>
+        </div>
+      </div>
+      <div class="spend-total">
+        <span class="spend-total-label">Total this month</span>
+        <span class="spend-total-value">$8,437</span>
+      </div>
+    </div>
+
+    <!-- Debt Paydown -->
+    <div class="card animate-up" style="animation-delay: 280ms">
+      <div class="card-header">
+        <div class="card-title">Debt Paydown</div>
+        <div class="card-action">Strategy →</div>
+      </div>
+      <div class="debt-cards">
+        <div class="debt-row">
+          <div class="debt-name">Chase Sapphire</div>
+          <div class="debt-bar-container"><div class="debt-bar" style="width:42%"></div></div>
+          <div class="debt-amount">$2,105</div>
+        </div>
+        <div class="debt-row">
+          <div class="debt-name">Discover It</div>
+          <div class="debt-bar-container"><div class="debt-bar" style="width:17%"></div></div>
+          <div class="debt-amount">$847</div>
+        </div>
+        <div class="debt-row">
+          <div class="debt-name">Apple Card</div>
+          <div class="debt-bar-container"><div class="debt-bar" style="width:62%"></div></div>
+          <div class="debt-amount">$3,153</div>
+        </div>
+        <div class="debt-row">
+          <div class="debt-name">Student Loans</div>
+          <div class="debt-bar-container"><div class="debt-bar" style="width:100%"></div></div>
+          <div class="debt-amount">$7,000</div>
+        </div>
+      </div>
+      <div class="debt-total">
+        <span class="debt-total-label">Total debt</span>
+        <span class="debt-total-value">$13,105</span>
+      </div>
+      <div class="debt-payoff">At current paydown rate → debt-free by <strong style="color:var(--accent-gold)">September 2026</strong></div>
+    </div>
+
+    <!-- Income Streams -->
+    <div class="card animate-up" style="animation-delay: 320ms">
+      <div class="card-header">
+        <div class="card-title">Income Streams — March</div>
+      </div>
+      <div class="spending-categories">
+        <div class="spend-row">
+          <div class="spend-cat">W-2 (Mozilla)</div>
+          <div class="spend-bar-container"><div class="spend-bar" style="width:100%;background:var(--accent-blue)"></div></div>
+          <div class="spend-amount" style="color:var(--accent-blue)">$19,583</div>
+        </div>
+        <div class="spend-row">
+          <div class="spend-cat">HVM Salary</div>
+          <div class="spend-bar-container"><div class="spend-bar" style="width:26%;background:var(--accent-gold)"></div></div>
+          <div class="spend-amount" style="color:var(--accent-gold)">$5,167</div>
+        </div>
+        <div class="spend-row">
+          <div class="spend-cat">HVM Sponsors</div>
+          <div class="spend-bar-container"><div class="spend-bar" style="width:33%;background:var(--accent-emerald)"></div></div>
+          <div class="spend-amount" style="color:var(--accent-emerald)">$6,500</div>
+        </div>
+        <div class="spend-row">
+          <div class="spend-cat">Affiliate</div>
+          <div class="spend-bar-container"><div class="spend-bar" style="width:13%;background:var(--accent-violet)"></div></div>
+          <div class="spend-amount" style="color:var(--accent-violet)">$2,588</div>
+        </div>
+        <div class="spend-row">
+          <div class="spend-cat">Speaking</div>
+          <div class="spend-bar-container"><div class="spend-bar" style="width:0%;background:var(--text-tertiary)"></div></div>
+          <div class="spend-amount" style="color:var(--text-tertiary)">$0</div>
+        </div>
+      </div>
+      <div class="spend-total">
+        <span class="spend-total-label">Total gross income</span>
+        <span class="spend-total-value" style="color:var(--accent-emerald)">$33,838</span>
+      </div>
+    </div>
+
+    <!-- Recent Transactions -->
+    <div class="card transactions-card animate-up" style="animation-delay: 360ms">
+      <div class="card-header">
+        <div class="card-title">Recent Transactions</div>
+        <div class="card-action">View all →</div>
+      </div>
+      <div class="txn-list">
+        <div class="txn-row">
+          <div class="txn-icon income">📥</div>
+          <div class="txn-info">
+            <div class="txn-name">HVM — Optro Advance Payment</div>
+            <div class="txn-meta"><span>Chase Business</span><span>Mar 14</span></div>
+          </div>
+          <div class="txn-category">Sponsor Revenue</div>
+          <div class="txn-amount positive">+$12,000</div>
+        </div>
+        <div class="txn-row">
+          <div class="txn-icon expense">📤</div>
+          <div class="txn-info">
+            <div class="txn-name">Adobe Creative Cloud</div>
+            <div class="txn-meta"><span>Chase Sapphire</span><span>Mar 14</span></div>
+          </div>
+          <div class="txn-category" style="border:1px solid rgba(248,113,113,0.3);color:var(--accent-red)">⚠ Price increase</div>
+          <div class="txn-amount negative">-$59.99</div>
+        </div>
+        <div class="txn-row">
+          <div class="txn-icon expense">📤</div>
+          <div class="txn-info">
+            <div class="txn-name">Riverside.fm — Annual Plan</div>
+            <div class="txn-meta"><span>HVM Operating</span><span>Mar 13</span></div>
+          </div>
+          <div class="txn-category">Production</div>
+          <div class="txn-amount negative">-$288.00</div>
+        </div>
+        <div class="txn-row">
+          <div class="txn-icon income">📥</div>
+          <div class="txn-info">
+            <div class="txn-name">Mozilla — Bi-monthly Salary</div>
+            <div class="txn-meta"><span>Chase Checking</span><span>Mar 13</span></div>
+          </div>
+          <div class="txn-category">W-2 Salary</div>
+          <div class="txn-amount positive">+$9,791.50</div>
+        </div>
+        <div class="txn-row">
+          <div class="txn-icon expense">📤</div>
+          <div class="txn-info">
+            <div class="txn-name">Team Dinner — Nobu (Emily, Marcus)</div>
+            <div class="txn-meta"><span>Chase Sapphire</span><span>Mar 12</span></div>
+          </div>
+          <div class="txn-category">Team</div>
+          <div class="txn-amount negative">-$247.83</div>
+        </div>
+        <div class="txn-row">
+          <div class="txn-icon transfer">↔</div>
+          <div class="txn-info">
+            <div class="txn-name">Transfer to HVM Savings</div>
+            <div class="txn-meta"><span>Internal</span><span>Mar 10</span></div>
+          </div>
+          <div class="txn-category">Transfer</div>
+          <div class="txn-amount" style="color:var(--accent-indigo)">$5,000</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.animate-up').forEach((el, i) => {
+  el.style.animationDelay = `${i * 60}ms`;
+});
+</script>
+</body>
+</html>

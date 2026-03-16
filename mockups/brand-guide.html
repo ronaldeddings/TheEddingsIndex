@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Eddings Index — Brand Guide</title>
+<style>
+:root {
+  --bg: #0a0a0f;
+  --surface: #131318;
+  --card: #1a1a22;
+  --elevated: #222230;
+  --border: #1f1f2e;
+  --text-1: #ebebf0;
+  --text-2: #8b8b9e;
+  --text-3: #5c5c70;
+  --gold: #e8a849;
+  --gold-dim: rgba(232,168,73,0.12);
+  --indigo: #7c8cf5;
+  --emerald: #3dd68c;
+  --rose: #f472b6;
+  --violet: #a78bfa;
+  --blue: #60a5fa;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text-1);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.6;
+}
+
+.page {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 60px 40px 100px;
+}
+
+/* Cover */
+.cover {
+  text-align: center;
+  padding: 80px 0 60px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 60px;
+}
+
+.cover-mark {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, var(--gold) 0%, #d4942e 100%);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 32px;
+  color: #0a0a0f;
+  margin: 0 auto 28px;
+  letter-spacing: -1px;
+}
+
+.cover h1 {
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  margin-bottom: 8px;
+}
+
+.cover h2 {
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--text-2);
+  margin-bottom: 32px;
+}
+
+.cover-meta {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* Sections */
+.section {
+  margin-bottom: 64px;
+}
+
+.section-number {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 8px;
+}
+
+.section h2 {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  margin-bottom: 20px;
+  line-height: 1.3;
+}
+
+.section h3 {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  margin-bottom: 12px;
+  margin-top: 32px;
+  color: var(--text-1);
+}
+
+p {
+  font-size: 15px;
+  color: var(--text-2);
+  line-height: 1.75;
+  margin-bottom: 16px;
+}
+
+p strong { color: var(--text-1); font-weight: 500; }
+p em { color: var(--gold); font-style: normal; }
+
+.lead {
+  font-size: 18px;
+  color: var(--text-1);
+  line-height: 1.7;
+  margin-bottom: 24px;
+  font-weight: 400;
+}
+
+/* Quote blocks */
+.quote {
+  border-left: 3px solid var(--gold);
+  padding: 20px 24px;
+  background: var(--card);
+  border-radius: 0 var(--radius, 10px) var(--radius, 10px) 0;
+  margin: 24px 0;
+}
+
+.quote p {
+  font-size: 16px;
+  color: var(--text-1);
+  font-style: italic;
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+
+.quote cite {
+  font-size: 12px;
+  color: var(--text-3);
+  font-style: normal;
+}
+
+/* Principle cards */
+.principles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.principle {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.principle-number {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--elevated);
+  margin-bottom: 8px;
+  line-height: 1;
+}
+
+.principle h4 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.principle p {
+  font-size: 13px;
+  margin-bottom: 0;
+}
+
+/* Color swatches */
+.swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 24px 0;
+}
+
+.swatch {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.swatch-color {
+  height: 80px;
+}
+
+.swatch-info {
+  padding: 12px 14px;
+  background: var(--card);
+}
+
+.swatch-name {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.swatch-hex {
+  font-size: 11px;
+  color: var(--text-3);
+  font-family: 'SF Mono', SFMono-Regular, Menlo, monospace;
+}
+
+.swatch-role {
+  font-size: 11px;
+  color: var(--text-2);
+  margin-top: 4px;
+}
+
+/* Typography specimens */
+.type-specimen {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px;
+  margin: 16px 0;
+}
+
+.type-sample {
+  margin-bottom: 12px;
+}
+
+.type-meta {
+  font-size: 11px;
+  color: var(--text-3);
+  font-family: 'SF Mono', SFMono-Regular, Menlo, monospace;
+}
+
+/* Voice examples */
+.voice-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.voice-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.voice-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 10px;
+}
+
+.voice-label.do { color: var(--emerald); }
+.voice-label.dont { color: var(--rose); }
+
+.voice-card p {
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.voice-card p:last-child { margin-bottom: 0; }
+
+/* Icon meanings */
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 24px 0;
+}
+
+.icon-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+}
+
+.icon-card-symbol {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.icon-card-name {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.icon-card-color {
+  font-size: 11px;
+  font-family: 'SF Mono', SFMono-Regular, Menlo, monospace;
+  color: var(--text-3);
+}
+
+/* Source identity */
+.source-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.source-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.source-info h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.source-info p {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-bottom: 0;
+}
+
+/* Divider */
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 48px 0;
+}
+
+/* Pillar cards */
+.pillars {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  margin: 24px 0;
+}
+
+.pillar {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 28px;
+  display: flex;
+  gap: 20px;
+}
+
+.pillar-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.pillar-body h4 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.pillar-body p {
+  font-size: 13px;
+  margin-bottom: 0;
+}
+
+/* Table */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+  font-size: 13px;
+}
+
+th {
+  text-align: left;
+  padding: 10px 14px;
+  background: var(--card);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-3);
+  border-bottom: 1px solid var(--border);
+}
+
+td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2);
+}
+
+td:first-child { color: var(--text-1); font-weight: 500; }
+
+code {
+  font-family: 'SF Mono', SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  background: var(--elevated);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--gold);
+}
+
+.toc {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 28px;
+  margin-bottom: 48px;
+}
+
+.toc h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.toc-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 14px;
+  color: var(--text-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.toc-item:last-child { border-bottom: none; }
+.toc-item span:first-child { color: var(--text-3); font-size: 12px; width: 24px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- ═══════ COVER ═══════ -->
+<div class="cover">
+  <div class="cover-mark">EI</div>
+  <h1>The Eddings Index</h1>
+  <h2>Brand Guide & Design Language</h2>
+  <p class="cover-meta">Version 1.0 — March 2026 — For internal use by PAI and contributors</p>
+</div>
+
+<!-- TOC -->
+<div class="toc">
+  <h3>Contents</h3>
+  <div class="toc-item"><span>01</span> Origin Story</div>
+  <div class="toc-item"><span>02</span> Brand Pillars</div>
+  <div class="toc-item"><span>03</span> Design Principles</div>
+  <div class="toc-item"><span>04</span> Voice & Tone</div>
+  <div class="toc-item"><span>05</span> Color System</div>
+  <div class="toc-item"><span>06</span> Typography</div>
+  <div class="toc-item"><span>07</span> Source Identity System</div>
+  <div class="toc-item"><span>08</span> Iconography</div>
+  <div class="toc-item"><span>09</span> The Freedom Narrative</div>
+  <div class="toc-item"><span>10</span> Platform Personality</div>
+</div>
+
+<!-- ═══════ 01 — ORIGIN STORY ═══════ -->
+<div class="section">
+  <div class="section-number">01</div>
+  <h2>Origin Story</h2>
+
+  <p class="lead">The Eddings Index exists because Ron Eddings built 30+ tools, indexed 382,000 embeddings across 912,000 files, and still couldn't search his own life from his phone.</p>
+
+  <p>Ron is a cybersecurity practitioner turned media entrepreneur. He's the founder of Hacker Valley Media, an O'Reilly author, and the host of a podcast heard by 50,000+ listeners across 150 countries. He's built a $2.29M media business with 94 customers and 81-85% margins. He works at Mozilla by day and hunts whale clients by night.</p>
+
+  <p>But underneath the business metrics is a father of two young daughters, a husband to Monika, a man who starts every morning with gratitude and a diffuser, and a builder who wakes at 4:30 AM because he can't wait to work on his interests.</p>
+
+  <p>The Eddings Index is named after him because it <em>is</em> him — his memory, his relationships, his financial trajectory, his meeting history, his creative output. It's the index to his life.</p>
+
+  <div class="quote">
+    <p>"My family gets the leftovers instead of the best of me."</p>
+    <cite>— Ron Eddings, 12 Week Year Workbook, on why execution matters</cite>
+  </div>
+
+  <p>This app exists to solve a problem that's both technical and deeply human: <strong>Ron has all the data but not enough time to make sense of it.</strong> The Eddings Index gives time back. Search your reality in seconds. See your Freedom Velocity at a glance. Know who you haven't talked to in weeks. Let the system carry the cognitive load so you can be present for Monika, for Ava, for the work that matters.</p>
+
+  <h3>What "Humantic" Means</h3>
+
+  <p>We coined <em>humantic</em> — human + semantic — to describe what this app is. Not a dashboard. Not a database viewer. Not an AI chatbot. It's a personal intelligence layer that understands the meaning of your life data and presents it in human terms.</p>
+
+  <p>When you search "Optro," you don't get 5 results from 5 databases. You get the <em>story</em> of Optro — the introduction email, the kick-off meeting, the Slack thread about pricing, the proposal PDF, the budget approval. Woven together. Timeline, not tables.</p>
+
+  <p>When you look at your Freedom Dashboard, you don't see account balances. You see <strong>"You need $3,211 more per week to replace your W-2."</strong> The data speaks in human terms because the human is the point.</p>
+</div>
+
+<div class="divider"></div>
+
+<!-- ═══════ 02 — BRAND PILLARS ═══════ -->
+<div class="section">
+  <div class="section-number">02</div>
+  <h2>Brand Pillars</h2>
+
+  <p class="lead">Five pillars anchor every design decision, every word, and every interaction in The Eddings Index.</p>
+
+  <div class="pillars">
+    <div class="pillar">
+      <div class="pillar-icon" style="background:rgba(232,168,73,0.12);color:var(--gold)">◉</div>
+      <div class="pillar-body">
+        <h4>Memory, Not Storage</h4>
+        <p>This is not a file system. It's not a database browser. It's the closest thing to having perfect recall of every conversation, every meeting, every relationship. Data is presented as memory — contextualized, connected, and meaningful.</p>
+      </div>
+    </div>
+    <div class="pillar">
+      <div class="pillar-icon" style="background:rgba(124,140,245,0.12);color:var(--indigo)">◆</div>
+      <div class="pillar-body">
+        <h4>Intelligence, Not Information</h4>
+        <p>PAI doesn't just retrieve — it interprets. "Your communication pattern with Emily has shifted toward strategic topics" is intelligence. "127 emails found" is information. We always aim for the former.</p>
+      </div>
+    </div>
+    <div class="pillar">
+      <div class="pillar-icon" style="background:rgba(61,214,140,0.12);color:var(--emerald)">▲</div>
+      <div class="pillar-body">
+        <h4>Freedom as North Star</h4>
+        <p>The Freedom Velocity metric is always visible because it represents what Ron is actually building toward — financial independence, time sovereignty, the ability to work from habit, not necessity. Every feature serves this north star.</p>
+      </div>
+    </div>
+    <div class="pillar">
+      <div class="pillar-icon" style="background:rgba(167,139,250,0.12);color:var(--violet)">⦿</div>
+      <div class="pillar-body">
+        <h4>Relationships Are the Graph</h4>
+        <p>People are not contacts. They're nodes in a living relationship graph. Every email, meeting, and Slack message adds depth. The app shows you who matters, who's fading, and who's growing — because Ron believes "I want to be the reason some people's dreams came true."</p>
+      </div>
+    </div>
+    <div class="pillar">
+      <div class="pillar-icon" style="background:rgba(244,114,182,0.12);color:var(--rose)">◇</div>
+      <div class="pillar-body">
+        <h4>Presence Over Productivity</h4>
+        <p>The app carries the cognitive load so Ron doesn't have to. He doesn't need to remember who he last talked to or what his savings rate is. The system remembers. He stays present — for the meeting, for the dinner, for Ava's bedtime.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ═══════ 03 — DESIGN PRINCIPLES ═══════ -->
+<div class="section">
+  <div class="section-number">03</div>
+  <h2>Design Principles</h2>
+
+  <p class="lead">These principles govern every pixel, every animation, every word in the interface.</p>
+
+  <div class="principles">
+    <div class="principle">
+      <div class="principle-number">01</div>
+      <h4>Stories, Not Records</h4>
+      <p>Search results are timelines, not lists. Financial data tells a narrative ("you'll be free by November 2027"), not a spreadsheet. Contacts show relationship arcs, not address books.</p>
+    </div>
+    <div class="principle">
+      <div class="principle-number">02</div>
+      <h4>Warm Dark</h4>
+      <p>The dark theme is warm, not cold. Subtle amber undertones in the grays. No pure black (#000). The app should feel like a well-lit study at night — intimate, focused, inviting. Not a hacker terminal.</p>
+    </div>
+    <div class="principle">
+      <div class="principle-number">03</div>
+      <h4>Density With Breathing Room</h4>
+      <p>High information density balanced with generous whitespace. Every card, every row, every section has room to breathe. Dense enough to be useful at a glance. Spacious enough to not feel overwhelming.</p>
+    </div>
+    <div class="principle">
+      <div class="principle-number">04</div>
+      <h4>AI Present, Not Dominant</h4>
+      <p>PAI insights appear in small, contextual cards — not full-screen takeovers. The AI is a brilliant assistant whispering in your ear, not a chatbot demanding attention. An indigo dot signals "PAI contributed this."</p>
+    </div>
+    <div class="principle">
+      <div class="principle-number">05</div>
+      <h4>Source-Aware Everything</h4>
+      <p>Every piece of data carries its provenance. The gold icon means email. The violet icon means meeting. The user never wonders "where did this come from?" Sources are color-coded, consistent, and omnipresent.</p>
+    </div>
+    <div class="principle">
+      <div class="principle-number">06</div>
+      <h4>Purposeful Motion</h4>
+      <p>Animations serve meaning, not decoration. A card fading in says "new data arrived." A gauge filling says "you're making progress." Nothing moves without reason. 180ms ease for interactions. 300ms for transitions. Never longer.</p>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ═══════ 04 — VOICE & TONE ═══════ -->
+<div class="section">
+  <div class="section-number">04</div>
+  <h2>Voice & Tone</h2>
+
+  <p class="lead">The Eddings Index speaks like Ron thinks — direct, honest, first-person, and grounded in data.</p>
+
+  <h3>Voice Characteristics</h3>
+
+  <table>
+    <tr><th>Trait</th><th>Description</th><th>Example</th></tr>
+    <tr><td>Direct</td><td>No hedging, no filler. Lead with the answer.</td><td>"You need $3,211 more per week" not "Based on our analysis, your current trajectory suggests..."</td></tr>
+    <tr><td>Human-scale</td><td>Data in human terms, not database terms.</td><td>"15 years of conversations with 2,847 people" not "282,341 email records indexed"</td></tr>
+    <tr><td>Actionable</td><td>Every insight implies a next step.</td><td>"3 deals need attention this week" not "Pipeline contains 3 active opportunities"</td></tr>
+    <tr><td>Honest</td><td>Bad news is stated plainly.</td><td>"Savings rate dropped from 22% to 18%" not "Room for improvement in savings optimization"</td></tr>
+    <tr><td>Warm</td><td>Personal, not clinical.</td><td>"Good evening, Ron" not "Dashboard loaded"</td></tr>
+  </table>
+
+  <h3>Voice Examples</h3>
+
+  <div class="voice-grid">
+    <div class="voice-card">
+      <div class="voice-label do">Write this</div>
+      <p>"You haven't connected with Chris in 14 days."</p>
+      <p>"At current velocity, freedom by November 2027."</p>
+      <p>"Sarah sent budget approval. Call is Wednesday."</p>
+      <p>"5 results across 3 sources. 8ms."</p>
+    </div>
+    <div class="voice-card">
+      <div class="voice-label dont">Not this</div>
+      <p>"Contact interaction gap detected: 14 days."</p>
+      <p>"Projected W-2 replacement date: 2027-11-01."</p>
+      <p>"New email received from sarah@optro.io."</p>
+      <p>"Search completed. Displaying results."</p>
+    </div>
+  </div>
+
+  <h3>Contextual Tone Shifts</h3>
+
+  <table>
+    <tr><th>Context</th><th>Tone</th><th>Why</th></tr>
+    <tr><td>Search results</td><td>Minimal, factual</td><td>Get out of the way. Let the data speak.</td></tr>
+    <tr><td>PAI insights</td><td>Conversational, suggestive</td><td>A trusted advisor sharing an observation, not a system alert.</td></tr>
+    <tr><td>Freedom Dashboard</td><td>Motivational, honest</td><td>This is Ron's north star. Celebrate progress. Don't hide setbacks.</td></tr>
+    <tr><td>Relationship alerts</td><td>Gentle, caring</td><td>"Haven't connected" not "interaction gap." These are people, not metrics.</td></tr>
+    <tr><td>Error states</td><td>Calm, practical</td><td>"VRAM not mounted. Sync paused." Not "CRITICAL ERROR."</td></tr>
+    <tr><td>Empty states</td><td>Inviting, encouraging</td><td>"Search your reality." Not "No results found."</td></tr>
+  </table>
+</div>
+
+<div class="divider"></div>
+
+<!-- ═══════ 05 — COLOR SYSTEM ═══════ -->
+<div class="section">
+  <div class="section-number">05</div>
+  <h2>Color System</h2>
+
+  <p class="lead">Colors carry meaning. Gold is the human thread — warmth, freedom, personal value. Indigo is the intelligence thread — AI, depth, insight. Every color earns its place.</p>
+
+  <h3>Background Scale</h3>
+  <p>The background palette uses warm-tinted darks — never pure black, never cold blue-gray. The subtle warmth creates an intimate, study-like atmosphere.</p>
+
+  <div class="swatch-grid">
+    <div class="swatch">
+      <div class="swatch-color" style="background:#0a0a0f"></div>
+      <div class="swatch-info"><div class="swatch-name">Deep</div><div class="swatch-hex">#0a0a0f</div><div class="swatch-role">App background</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#131318"></div>
+      <div class="swatch-info"><div class="swatch-name">Surface</div><div class="swatch-hex">#131318</div><div class="swatch-role">Sidebar, detail panel</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#1a1a22"></div>
+      <div class="swatch-info"><div class="swatch-name">Card</div><div class="swatch-hex">#1a1a22</div><div class="swatch-role">Cards, search bar</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#222230"></div>
+      <div class="swatch-info"><div class="swatch-name">Elevated</div><div class="swatch-hex">#222230</div><div class="swatch-role">Hover states, tags</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#2a2a3a"></div>
+      <div class="swatch-info"><div class="swatch-name">Hover</div><div class="swatch-hex">#2a2a3a</div><div class="swatch-role">Active hover</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#1f1f2e"></div>
+      <div class="swatch-info"><div class="swatch-name">Border</div><div class="swatch-hex">#1f1f2e</div><div class="swatch-role">Dividers, card edges</div></div>
+    </div>
+  </div>
+
+  <h3>Accent Colors</h3>
+  <p>Each accent color has a specific semantic role. They're never decorative.</p>
+
+  <div class="swatch-grid">
+    <div class="swatch">
+      <div class="swatch-color" style="background:#e8a849"></div>
+      <div class="swatch-info"><div class="swatch-name">Gold</div><div class="swatch-hex">#e8a849</div><div class="swatch-role">Human warmth, freedom, primary accent</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#7c8cf5"></div>
+      <div class="swatch-info"><div class="swatch-name">Indigo</div><div class="swatch-hex">#7c8cf5</div><div class="swatch-role">AI intelligence, PAI, depth</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#3dd68c"></div>
+      <div class="swatch-info"><div class="swatch-name">Emerald</div><div class="swatch-hex">#3dd68c</div><div class="swatch-role">Growth, positive, income, sync</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#f472b6"></div>
+      <div class="swatch-info"><div class="swatch-name">Rose</div><div class="swatch-hex">#f472b6</div><div class="swatch-role">Attention, debt, fading connections</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#a78bfa"></div>
+      <div class="swatch-info"><div class="swatch-name">Violet</div><div class="swatch-hex">#a78bfa</div><div class="swatch-role">Meetings, creativity, connection</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#60a5fa"></div>
+      <div class="swatch-info"><div class="swatch-name">Blue</div><div class="swatch-hex">#60a5fa</div><div class="swatch-role">Information, W-2, transcript</div></div>
+    </div>
+  </div>
+
+  <h3>Text Scale</h3>
+  <div class="swatch-grid">
+    <div class="swatch">
+      <div class="swatch-color" style="background:#ebebf0;height:50px"></div>
+      <div class="swatch-info"><div class="swatch-name">Primary</div><div class="swatch-hex">#ebebf0</div><div class="swatch-role">Headlines, values, names</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#8b8b9e;height:50px"></div>
+      <div class="swatch-info"><div class="swatch-name">Secondary</div><div class="swatch-hex">#8b8b9e</div><div class="swatch-role">Body text, snippets</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#5c5c70;height:50px"></div>
+      <div class="swatch-info"><div class="swatch-name">Tertiary</div><div class="swatch-hex">#5c5c70</div><div class="swatch-role">Metadata, timestamps, labels</div></div>
+    </div>
+  </div>
+
+  <h3>Color Psychology</h3>
+
+  <table>
+    <tr><th>Color</th><th>Emotion</th><th>Ron's Context</th></tr>
+    <tr><td style="color:var(--gold)">Gold</td><td>Warmth, value, progress</td><td>The Freedom Velocity gauge, the "human" thread, active nav, search highlights. Gold = what matters to Ron as a person.</td></tr>
+    <tr><td style="color:var(--indigo)">Indigo</td><td>Intelligence, trust, depth</td><td>PAI insights, AI-generated context, the "thinking" layer. Indigo = where the AI contributes.</td></tr>
+    <tr><td style="color:var(--emerald)">Emerald</td><td>Growth, health, positive</td><td>Revenue growth, sync status, net worth gains. Emerald = things moving in the right direction.</td></tr>
+    <tr><td style="color:var(--rose)">Rose</td><td>Attention, care, urgency</td><td>Debt balances, fading connections, anomalies. Rose = things that need Ron's attention, with compassion not alarm.</td></tr>
+    <tr><td style="color:var(--violet)">Violet</td><td>Creativity, connection, meetings</td><td>Meeting recordings, podcast episodes, creative work. Violet = where Ron creates and connects.</td></tr>
+    <tr><td style="color:var(--blue)">Blue</td><td>Information, stability, W-2</td><td>Mozilla salary, transcripts, informational data. Blue = the stable foundation Ron is building on.</td></tr>
+  </table>
+</div>
+
+<div class="divider"></div>
+
+<!-- ═══════ 06 — TYPOGRAPHY ═══════ -->
+<div class="section">
+  <div class="section-number">06</div>
+  <h2>Typography</h2>
+
+  <p class="lead">SF Pro is the sole typeface — the system font of Apple platforms. No custom fonts. No downloads. Pure native performance.</p>
+
+  <p>This is a deliberate choice. The Eddings Index is a personal tool, not a marketing site. It should feel native to macOS and iOS — like it belongs on your device, not in a browser. SF Pro's optical sizes (Display for headlines, Text for body) provide the range we need.</p>
+
+  <div class="type-specimen">
+    <div class="type-sample" style="font-size:28px;font-weight:700;letter-spacing:-0.5px;margin-bottom:8px">Freedom Dashboard</div>
+    <div class="type-meta">Display / 28px / Weight 700 / Tracking -0.5px — Page titles, hero values</div>
+  </div>
+
+  <div class="type-specimen">
+    <div class="type-sample" style="font-size:20px;font-weight:600;letter-spacing:-0.3px;margin-bottom:8px">Re: Optro Q2 Sponsorship Budget</div>
+    <div class="type-meta">Title / 20px / Weight 600 / Tracking -0.3px — Detail headers, section titles</div>
+  </div>
+
+  <div class="type-specimen">
+    <div class="type-sample" style="font-size:15px;font-weight:500;margin-bottom:8px">Emily Humphrey — COO, Hacker Valley Media</div>
+    <div class="type-meta">Body / 15px / Weight 500 — Card titles, result names, navigation items</div>
+  </div>
+
+  <div class="type-specimen">
+    <div class="type-sample" style="font-size:13px;color:var(--text-2);margin-bottom:8px">Looking at $45K for the podcast sponsorship package. The CISO audience reach is exactly what our board wants to see.</div>
+    <div class="type-meta">Body Small / 13px / Weight 400 — Snippets, descriptions, body content</div>
+  </div>
+
+  <div class="type-specimen">
+    <div class="type-sample" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-3);margin-bottom:8px">PAI INSIGHTS</div>
+    <div class="type-meta">Label / 11px / Weight 600 / Uppercase / Tracking 0.8px — Section headers, source badges</div>
+  </div>
+
+  <div class="type-specimen">
+    <div class="type-sample" style="font-size:36px;font-weight:700;letter-spacing:-1px;color:var(--gold);margin-bottom:8px">$2,847</div>
+    <div class="type-meta">Metric / 36px / Weight 700 / Tracking -1px — Financial values, gauge numbers</div>
+  </div>
+
+  <h3>Type Scale</h3>
+  <table>
+    <tr><th>Name</th><th>Size</th><th>Weight</th><th>Tracking</th><th>Usage</th></tr>
+    <tr><td>Metric</td><td>36px</td><td>700</td><td>-1px</td><td>Financial values, gauge centers</td></tr>
+    <tr><td>Display</td><td>28px</td><td>700</td><td>-0.5px</td><td>Page titles</td></tr>
+    <tr><td>Headline</td><td>22px</td><td>600</td><td>-0.3px</td><td>Velocity headline, hero text</td></tr>
+    <tr><td>Title</td><td>20px</td><td>600</td><td>-0.3px</td><td>Detail headers</td></tr>
+    <tr><td>Body Large</td><td>15px</td><td>500</td><td>0</td><td>Card titles, nav items</td></tr>
+    <tr><td>Body</td><td>14px</td><td>400</td><td>0</td><td>Detail content, descriptions</td></tr>
+    <tr><td>Body Small</td><td>13px</td><td>400</td><td>0</td><td>Snippets, list items</td></tr>
+    <tr><td>Caption</td><td>12px</td><td>400</td><td>0</td><td>Timestamps, metadata</td></tr>
+    <tr><td>Label</td><td>11px</td><td>600</td><td>0.8px</td><td>Section headers (uppercase)</td></tr>
+    <tr><td>Micro</td><td>10px</td><td>500</td><td>0</td><td>Tags, badges</td></tr>
+  </table>
+</div>
+
+<div class="divider"></div>
+
+<!-- ═══════ 07 — SOURCE IDENTITY ═══════ -->
+<div class="section">
+  <div class="section-number">07</div>
+  <h2>Source Identity System</h2>
+
+  <p class="lead">Every piece of data in The Eddings Index comes from somewhere. The source identity system ensures you always know where — at a glance, without reading.</p>
+
+  <p>Sources are identified by a consistent triad: <strong>color + icon + label</strong>. This triad appears everywhere — search results, detail panels, filter pills, timeline dots, and tags. Once learned, it's instant recognition.</p>
+
+  <div class="source-row">
+    <div class="source-badge" style="background:rgba(232,168,73,0.12);color:var(--gold)">✉</div>
+    <div class="source-info">
+      <h4 style="color:var(--gold)">Email — Gold</h4>
+      <p>282K chunks. The primary communication channel. Gold because email is where relationships deepen and deals close — the most personally valuable data source.</p>
+    </div>
+  </div>
+  <div class="source-row">
+    <div class="source-badge" style="background:rgba(124,140,245,0.12);color:var(--indigo)">◈</div>
+    <div class="source-info">
+      <h4 style="color:var(--indigo)">Slack — Indigo</h4>
+      <p>13.5K chunks. Team coordination and rapid-fire decisions. Indigo because Slack is where intelligence surfaces — team insights, deal alerts, quick thinking.</p>
+    </div>
+  </div>
+  <div class="source-row">
+    <div class="source-badge" style="background:rgba(167,139,250,0.12);color:var(--violet)">◉</div>
+    <div class="source-info">
+      <h4 style="color:var(--violet)">Meeting — Violet</h4>
+      <p>212 meetings in Q1 2026. Where ideas become commitments. Violet because meetings are creative acts — people connecting to build something together.</p>
+    </div>
+  </div>
+  <div class="source-row">
+    <div class="source-badge" style="background:rgba(96,165,250,0.12);color:var(--blue)">▶</div>
+    <div class="source-info">
+      <h4 style="color:var(--blue)">Transcript — Blue</h4>
+      <p>87K chunks. The spoken record. Blue because transcripts are the stable, factual record of what was actually said — no interpretation, just truth.</p>
+    </div>
+  </div>
+  <div class="source-row">
+    <div class="source-badge" style="background:rgba(61,214,140,0.12);color:var(--emerald)">▤</div>
+    <div class="source-info">
+      <h4 style="color:var(--emerald)">File — Emerald</h4>
+      <p>912K indexed. Documents, proposals, plans. Emerald because files are growth artifacts — the proposals that become deals, the plans that become reality.</p>
+    </div>
+  </div>
+  <div class="source-row" style="border-bottom:none">
+    <div class="source-badge" style="background:rgba(244,114,182,0.12);color:var(--rose)">$</div>
+    <div class="source-info">
+      <h4 style="color:var(--rose)">Finance — Rose</h4>
+      <p>SimpleFin + QBO. The money story. Rose because financial data demands attention and care — not alarm, but awareness.</p>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ═══════ 08 — ICONOGRAPHY ═══════ -->
+<div class="section">
+  <div class="section-number">08</div>
+  <h2>Iconography</h2>
+
+  <p class="lead">The Eddings Index uses Unicode symbols as icons — no icon font dependency, no image assets. Pure text that works on every platform.</p>
+
+  <div class="icon-grid">
+    <div class="icon-card"><div class="icon-card-symbol">⌕</div><div class="icon-card-name">Search</div><div class="icon-card-color">Navigation</div></div>
+    <div class="icon-card"><div class="icon-card-symbol">◆</div><div class="icon-card-name">Today</div><div class="icon-card-color">Navigation</div></div>
+    <div class="icon-card"><div class="icon-card-symbol">$</div><div class="icon-card-name">Freedom</div><div class="icon-card-color">Navigation</div></div>
+    <div class="icon-card"><div class="icon-card-symbol">✉</div><div class="icon-card-name">Email</div><div class="icon-card-color" style="color:var(--gold)">#e8a849</div></div>
+    <div class="icon-card"><div class="icon-card-symbol">◈</div><div class="icon-card-name">Slack</div><div class="icon-card-color" style="color:var(--indigo)">#7c8cf5</div></div>
+    <div class="icon-card"><div class="icon-card-symbol">◉</div><div class="icon-card-name">Meeting</div><div class="icon-card-color" style="color:var(--violet)">#a78bfa</div></div>
+    <div class="icon-card"><div class="icon-card-symbol">▶</div><div class="icon-card-name">Transcript</div><div class="icon-card-color" style="color:var(--blue)">#60a5fa</div></div>
+    <div class="icon-card"><div class="icon-card-symbol">▤</div><div class="icon-card-name">File</div><div class="icon-card-color" style="color:var(--emerald)">#3dd68c</div></div>
+    <div class="icon-card"><div class="icon-card-symbol">⦿</div><div class="icon-card-name">Person</div><div class="icon-card-color">Navigation</div></div>
+  </div>
+
+  <p>In the SwiftUI app, these will be replaced by SF Symbols where available — but the semantic mapping stays the same. The Unicode versions are the prototype reference.</p>
+</div>
+
+<div class="divider"></div>
+
+<!-- ═══════ 09 — THE FREEDOM NARRATIVE ═══════ -->
+<div class="section">
+  <div class="section-number">09</div>
+  <h2>The Freedom Narrative</h2>
+
+  <p class="lead">The Freedom Velocity metric is not just a number. It's the central narrative of Ron's life right now — and the emotional heart of the app.</p>
+
+  <div class="quote">
+    <p>"I want to replace my salary, benefits, and retirement for me and Monika with revenue that I make outside of W2 employment. What prevents me from doing that is not measuring and assessing progress."</p>
+    <cite>— Ron Eddings, Freedom Acceleration Plan</cite>
+  </div>
+
+  <h3>How We Tell the Freedom Story</h3>
+
+  <p><strong>The gauge is always visible.</strong> In the sidebar on macOS. In a widget on iOS. At the top of the Freedom Dashboard. Ron should never be more than one glance away from knowing where he stands.</p>
+
+  <p><strong>The target is specific: $6,058/week.</strong> Not "financial independence" in the abstract. Not a vague percentage. A real number that represents the weekly non-W2 take-home needed to replace the W-2 system. When this number hits $6,058 for 12 consecutive weeks, freedom is achieved.</p>
+
+  <p><strong>The projection is scenario-based.</strong> "At current velocity: November 2027. If CrowdStrike closes: June 2027. If Optro + CrowdStrike: March 2027." This gives Ron agency — he can see exactly how each deal affects the timeline.</p>
+
+  <p><strong>The language is motivational but honest.</strong> We celebrate progress ("Revenue up 12% vs Q4") and state setbacks plainly ("Savings rate dropped from 22% to 18%"). No sugarcoating. Ron's own words: "The number-one thing you will have to sacrifice to be great is your comfort."</p>
+
+  <h3>What Freedom Means to Ron</h3>
+
+  <p>Freedom isn't retirement. It's the ability to <strong>work from habit, not necessity</strong>. To be generously paid for his time and input. To maintain a lifestyle without debt. To remain married to Monika. To see his kids grow up and be an active part of their lives. To build a family home where they create core memories.</p>
+
+  <p>The app carries this weight. The Freedom Dashboard isn't a feature — it's the reason the app exists.</p>
+</div>
+
+<div class="divider"></div>
+
+<!-- ═══════ 10 — PLATFORM PERSONALITY ═══════ -->
+<div class="section">
+  <div class="section-number">10</div>
+  <h2>Platform Personality</h2>
+
+  <p class="lead">If The Eddings Index were a person, it would be the version of Ron that has perfect memory and infinite patience.</p>
+
+  <h3>Personality Traits</h3>
+
+  <table>
+    <tr><th>Trait</th><th>Manifests As</th></tr>
+    <tr><td>Observant</td><td>Surfaces connections you didn't ask for. "Emily mentioned capacity concerns — consider discussing hiring before CrowdStrike closes."</td></tr>
+    <tr><td>Organized</td><td>Everything in its place. Sources color-coded. Timeline ordered. Relationships ranked by depth. Nothing lost.</td></tr>
+    <tr><td>Honest</td><td>Shows the debt alongside the net worth. Shows fading connections alongside growing ones. No vanity metrics.</td></tr>
+    <tr><td>Quiet</td><td>Doesn't demand attention. Doesn't send notifications unless something genuinely matters. Waits to be asked.</td></tr>
+    <tr><td>Personal</td><td>Knows your name. Knows the time. Knows your goals. Adapts. "Good evening, Ron. Sunday, March 15." Not "Welcome, user."</td></tr>
+    <tr><td>Relentless</td><td>Indexes everything. Searches everything. Never forgets a conversation, a meeting, a transaction. Like Ron's own drive — it doesn't quit.</td></tr>
+  </table>
+
+  <h3>What It's Not</h3>
+
+  <p><strong>Not a chatbot.</strong> You don't talk to it. You search, browse, and glance. PAI insights are one-way observations, not conversations.</p>
+
+  <p><strong>Not a productivity app.</strong> No to-do lists. No Pomodoro timers. No habit streaks. Ron has the 12 Week Year for that. This is memory and intelligence, not task management.</p>
+
+  <p><strong>Not a social media dashboard.</strong> No follower counts. No engagement metrics. No vanity. The audience is one person: Ron.</p>
+
+  <p><strong>Not corporate.</strong> This is a personal tool built for a specific human. The design reflects Ron's taste, Ron's needs, Ron's values. Not a template. Not a SaaS product. A craftsman's tool, built by his own AI, for his own life.</p>
+
+  <div class="quote">
+    <p>"I operate as a mental athlete — intentional, disciplined, focused. Not grinding, but performing at my peak because I've built systems that protect my energy and maximize my impact."</p>
+    <cite>— Ron Eddings, Aspirational Vision</cite>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

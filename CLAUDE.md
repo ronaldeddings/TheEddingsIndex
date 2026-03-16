@@ -33,6 +33,7 @@ ei-cli migrate --from-postgres  # One-time data import
 - `Sources/EddingsWidgets/` — WidgetKit extension, also in Xcode project.
 - `Tests/EddingsKitTests/` — Swift Testing framework.
 - `prd/` — PRD-01 (finance), PRD-02 (full platform), PROPOSAL.
+- `mockups/` — Brand guide, design tokens, UI prototypes (HTML/CSS/JS).
 - `com.vram.eddings-index.plist` — Launch agent definition.
 
 ## Tech Stack
@@ -133,6 +134,52 @@ TheEddingsIndex is ADDITIVE. Both systems coexist.
 | Launch Agent | `com.vram.eddings-index` |
 | CLI binary | `ei-cli` |
 | Shorthand | `EI` |
+
+## Design System
+
+The brand guide and design tokens define the visual language. Follow these when building UI.
+
+- **Brand Guide:** `mockups/brand-guide.html` — Origin story, 5 brand pillars, 6 design principles, voice & tone, color psychology, typography scale, source identity system, iconography, the Freedom Narrative, platform personality
+- **Design Tokens:** `mockups/design-tokens.json` — Machine-readable tokens for Swift/SwiftUI (colors, typography, spacing, radius, shadows, motion, layout, components)
+- **UI Mockups:** `mockups/ei-app.html` (macOS 3-column), `ei-freedom.html` (Freedom Dashboard), `ei-people.html` (Relationships), `ei-mobile.html` (iOS)
+
+### Design Principles (Summary)
+
+1. **Stories, Not Records** — Search results are timelines. Financial data tells a narrative. Contacts show relationship arcs.
+2. **Warm Dark** — Subtle amber-tinted darks. No pure black. Feels like a well-lit study, not a terminal.
+3. **Density With Breathing Room** — High info density balanced with generous whitespace.
+4. **AI Present, Not Dominant** — PAI insights in small contextual cards, not chatbot takeovers. Indigo dot = "PAI contributed this."
+5. **Source-Aware Everything** — Every piece of data carries color + icon + label provenance.
+6. **Purposeful Motion** — 180ms for interactions. 300ms for transitions. Nothing moves without reason.
+
+### Color Semantics
+
+| Color | Hex | Role |
+|-------|-----|------|
+| Gold | `#e8a849` | Human warmth, freedom, primary accent |
+| Indigo | `#7c8cf5` | AI intelligence, PAI insights |
+| Emerald | `#3dd68c` | Growth, positive, income, sync |
+| Rose | `#f472b6` | Attention, debt, fading connections |
+| Violet | `#a78bfa` | Meetings, creativity, connection |
+| Blue | `#60a5fa` | Information, W-2, transcripts |
+
+### Source Identity
+
+| Source | Color | Icon | SF Symbol |
+|--------|-------|------|-----------|
+| Email | Gold | ✉ | `envelope.fill` |
+| Slack | Indigo | ◈ | `bubble.left.fill` |
+| Meeting | Violet | ◉ | `video.fill` |
+| Transcript | Blue | ▶ | `text.quote` |
+| File | Emerald | ▤ | `doc.fill` |
+| Finance | Rose | $ | `dollarsign.circle.fill` |
+
+### Voice Rules
+
+- Direct, not hedging. "You need $3,211 more per week" not "Based on analysis..."
+- Human-scale. "15 years of conversations with 2,847 people" not "282,341 email records"
+- Actionable. "3 deals need attention" not "Pipeline contains 3 opportunities"
+- Warm. "Good evening, Ron" not "Dashboard loaded"
 
 ## Key PRD References
 

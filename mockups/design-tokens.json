@@ -1,0 +1,245 @@
+{
+  "meta": {
+    "name": "The Eddings Index Design Tokens",
+    "version": "1.0.0",
+    "generated": "2026-03-15",
+    "description": "Machine-readable design tokens for Swift/SwiftUI consumption"
+  },
+
+  "color": {
+    "background": {
+      "deep":      { "hex": "#0a0a0f", "rgb": [10, 10, 15],   "description": "App background, content area" },
+      "surface":   { "hex": "#131318", "rgb": [19, 19, 24],   "description": "Sidebar, detail panel, secondary surfaces" },
+      "card":      { "hex": "#1a1a22", "rgb": [26, 26, 34],   "description": "Cards, search bar, input fields" },
+      "elevated":  { "hex": "#222230", "rgb": [34, 34, 48],   "description": "Hover states, tags, badges" },
+      "hover":     { "hex": "#2a2a3a", "rgb": [42, 42, 58],   "description": "Active hover, pressed states" }
+    },
+
+    "border": {
+      "default":   { "hex": "#1f1f2e", "rgb": [31, 31, 46],   "description": "Card borders, dividers" },
+      "subtle":    { "hex": "#18181f", "rgb": [24, 24, 31],   "description": "Subtle separators, list dividers" }
+    },
+
+    "text": {
+      "primary":   { "hex": "#ebebf0", "rgb": [235, 235, 240], "description": "Headlines, names, values" },
+      "secondary": { "hex": "#8b8b9e", "rgb": [139, 139, 158], "description": "Body text, snippets" },
+      "tertiary":  { "hex": "#5c5c70", "rgb": [92, 92, 112],   "description": "Metadata, timestamps, labels" }
+    },
+
+    "accent": {
+      "gold":    { "hex": "#e8a849", "rgb": [232, 168, 73],  "role": "Human warmth, freedom, primary accent" },
+      "indigo":  { "hex": "#7c8cf5", "rgb": [124, 140, 245], "role": "AI intelligence, PAI, depth" },
+      "emerald": { "hex": "#3dd68c", "rgb": [61, 214, 140],  "role": "Growth, positive, income, sync" },
+      "rose":    { "hex": "#f472b6", "rgb": [244, 114, 182], "role": "Attention, debt, fading connections" },
+      "violet":  { "hex": "#a78bfa", "rgb": [167, 139, 250], "role": "Meetings, creativity, connection" },
+      "blue":    { "hex": "#60a5fa", "rgb": [96, 165, 250],  "role": "Information, W-2, transcript" },
+      "red":     { "hex": "#f87171", "rgb": [248, 113, 113], "role": "Errors, destructive actions" }
+    },
+
+    "accentDim": {
+      "gold":    { "hex": "rgba(232,168,73,0.12)",  "description": "Gold tinted background" },
+      "indigo":  { "hex": "rgba(124,140,245,0.12)", "description": "Indigo tinted background" },
+      "emerald": { "hex": "rgba(61,214,140,0.12)",  "description": "Emerald tinted background" },
+      "rose":    { "hex": "rgba(244,114,182,0.12)", "description": "Rose tinted background" },
+      "violet":  { "hex": "rgba(167,139,250,0.12)", "description": "Violet tinted background" },
+      "blue":    { "hex": "rgba(96,165,250,0.12)",  "description": "Blue tinted background" }
+    },
+
+    "source": {
+      "email":      { "color": "#e8a849", "icon": "✉", "sfSymbol": "envelope.fill",            "label": "Email" },
+      "slack":      { "color": "#7c8cf5", "icon": "◈", "sfSymbol": "bubble.left.fill",          "label": "Slack" },
+      "meeting":    { "color": "#a78bfa", "icon": "◉", "sfSymbol": "video.fill",                "label": "Meeting" },
+      "transcript": { "color": "#60a5fa", "icon": "▶", "sfSymbol": "text.quote",                "label": "Transcript" },
+      "file":       { "color": "#3dd68c", "icon": "▤", "sfSymbol": "doc.fill",                  "label": "File" },
+      "finance":    { "color": "#f472b6", "icon": "$", "sfSymbol": "dollarsign.circle.fill",     "label": "Finance" }
+    }
+  },
+
+  "typography": {
+    "fontFamily": {
+      "display": "-apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif",
+      "text": "-apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif",
+      "mono": "'SF Mono', SFMono-Regular, Menlo, monospace",
+      "swift": {
+        "display": ".systemFont(ofSize:weight:)",
+        "note": "Uses system font automatically — SF Pro Display for large sizes, SF Pro Text for body"
+      }
+    },
+    "scale": {
+      "metric":     { "size": 36, "weight": 700, "tracking": -1.0,  "usage": "Financial values, gauge centers" },
+      "display":    { "size": 28, "weight": 700, "tracking": -0.5,  "usage": "Page titles" },
+      "headline":   { "size": 22, "weight": 600, "tracking": -0.3,  "usage": "Velocity headline, hero text" },
+      "title":      { "size": 20, "weight": 600, "tracking": -0.3,  "usage": "Detail headers" },
+      "bodyLarge":  { "size": 15, "weight": 500, "tracking": 0,     "usage": "Card titles, nav items" },
+      "body":       { "size": 14, "weight": 400, "tracking": 0,     "usage": "Detail content" },
+      "bodySmall":  { "size": 13, "weight": 400, "tracking": 0,     "usage": "Snippets, list items" },
+      "caption":    { "size": 12, "weight": 400, "tracking": 0,     "usage": "Timestamps, metadata" },
+      "label":      { "size": 11, "weight": 600, "tracking": 0.8,   "usage": "Section headers (uppercase)" },
+      "micro":      { "size": 10, "weight": 500, "tracking": 0,     "usage": "Tags, badges" }
+    },
+    "lineHeight": {
+      "tight": 1.3,
+      "normal": 1.5,
+      "relaxed": 1.75
+    }
+  },
+
+  "spacing": {
+    "unit": 4,
+    "scale": {
+      "0":  0,
+      "1":  4,
+      "2":  8,
+      "3":  12,
+      "4":  16,
+      "5":  20,
+      "6":  24,
+      "7":  28,
+      "8":  32,
+      "10": 40,
+      "12": 48,
+      "16": 64,
+      "20": 80
+    },
+    "semantic": {
+      "cardPadding":      { "value": 16, "description": "Internal card padding" },
+      "cardPaddingLarge":  { "value": 24, "description": "Hero cards, detail sections" },
+      "cardGap":           { "value": 8,  "description": "Between stacked cards" },
+      "sectionGap":        { "value": 24, "description": "Between content sections" },
+      "sidebarPadding":    { "value": 20, "description": "Sidebar horizontal padding" },
+      "detailPadding":     { "value": 28, "description": "Detail panel horizontal padding" },
+      "navItemPadding":    { "value": [8, 10], "description": "Nav item vertical/horizontal" },
+      "pillPadding":       { "value": [4, 12], "description": "Filter pill vertical/horizontal" },
+      "tagPadding":        { "value": [2, 7],  "description": "Tag vertical/horizontal" }
+    }
+  },
+
+  "radius": {
+    "sm":  6,
+    "md":  10,
+    "lg":  14,
+    "xl":  16,
+    "pill": 20,
+    "full": 9999,
+    "semantic": {
+      "card":      10,
+      "button":    8,
+      "input":     10,
+      "badge":     10,
+      "avatar":    9999,
+      "tag":       10,
+      "pill":      20,
+      "sourceIcon": 6,
+      "widget":    22
+    }
+  },
+
+  "shadow": {
+    "card":     { "value": "0 1px 3px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.03)", "usage": "Card hover elevation" },
+    "elevated": { "value": "0 4px 20px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04)", "usage": "Dropdowns, modals" },
+    "glow": {
+      "gold":   { "value": "0 0 0 3px rgba(232,168,73,0.08)",  "usage": "Search focus, active input" },
+      "indigo": { "value": "0 0 0 3px rgba(124,140,245,0.08)", "usage": "AI-related focus" }
+    }
+  },
+
+  "motion": {
+    "duration": {
+      "instant": 100,
+      "fast":    180,
+      "normal":  250,
+      "slow":    400,
+      "gauge":   1500
+    },
+    "easing": {
+      "default":    "cubic-bezier(0.4, 0, 0.2, 1)",
+      "spring":     "cubic-bezier(0.34, 1.56, 0.64, 1)",
+      "decelerate": "cubic-bezier(0, 0, 0.2, 1)",
+      "accelerate": "cubic-bezier(0.4, 0, 1, 1)"
+    },
+    "semantic": {
+      "hover":      { "duration": 180, "easing": "default",    "description": "Button/card hover transitions" },
+      "fadeIn":     { "duration": 250, "easing": "default",    "description": "Content appearing" },
+      "slideIn":    { "duration": 200, "easing": "default",    "description": "Detail panel content" },
+      "stagger":    { "delay": 30,     "easing": "default",    "description": "Delay between sequential items" },
+      "gaugeFill":  { "duration": 1500,"easing": "decelerate", "description": "Freedom velocity gauge animation" },
+      "pulse":      { "duration": 3000,"easing": "default",    "description": "Sync status indicator" }
+    }
+  },
+
+  "layout": {
+    "macOS": {
+      "sidebarWidth":  240,
+      "contentWidth":  380,
+      "detailWidth":   "flex",
+      "minAppWidth":   1024,
+      "description":   "Three-column NavigationSplitView"
+    },
+    "iOS": {
+      "maxWidth":      393,
+      "tabBarHeight":  83,
+      "statusBarHeight": 54,
+      "safeAreaBottom": 34,
+      "description":   "TabView with safe area insets"
+    },
+    "widget": {
+      "small":  { "width": 170, "height": 170, "radius": 22 },
+      "medium": { "width": 364, "height": 170, "radius": 22 },
+      "large":  { "width": 364, "height": 382, "radius": 22 }
+    }
+  },
+
+  "components": {
+    "avatar": {
+      "mini":   { "size": 20, "fontSize": 9,  "borderWidth": 2 },
+      "small":  { "size": 28, "fontSize": 11, "borderWidth": 0 },
+      "medium": { "size": 40, "fontSize": 14, "borderWidth": 0 },
+      "large":  { "size": 72, "fontSize": 26, "borderWidth": 2 }
+    },
+    "sourceIcon": {
+      "size": 28,
+      "radius": 6,
+      "fontSize": 13,
+      "backgroundOpacity": 0.12
+    },
+    "freedomGauge": {
+      "macOS": { "size": 220, "strokeWidth": 10, "description": "Sidebar and dashboard gauge" },
+      "iOS":   { "size": 180, "strokeWidth": 12, "description": "Mobile freedom screen" },
+      "mini":  { "height": 4, "description": "Sidebar mini progress bar" }
+    },
+    "depthBar": {
+      "width": 40,
+      "height": 3,
+      "radius": 2,
+      "description": "Relationship depth indicator"
+    },
+    "navItem": {
+      "height": 34,
+      "iconWidth": 18,
+      "gap": 10,
+      "activeBackground": "rgba(232,168,73,0.10)"
+    },
+    "resultCard": {
+      "padding": [14, 16],
+      "snippetLineClamp": 2,
+      "selectedBorderColor": "rgba(232,168,73,0.3)",
+      "selectedBackground": "rgba(232,168,73,0.05)"
+    },
+    "insightCard": {
+      "width": 200,
+      "padding": [12, 14],
+      "borderLeftWidth": 2,
+      "variants": ["gold", "indigo", "emerald", "rose"]
+    }
+  },
+
+  "z": {
+    "base":     0,
+    "card":     1,
+    "sticky":   10,
+    "overlay":  50,
+    "modal":    100,
+    "tabBar":   100,
+    "toast":    200
+  }
+}
