@@ -9,3 +9,8 @@
 *.pem
 *.key
 *.onnx
+*.usearch
+*.mlmodel
+state/
+.swiftpm/
+Package.resolved
