@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>com.hackervalley.eddingsindex</string>
+    <key>CFBundleName</key>
+    <string>The Eddings Index</string>
+    <key>CFBundleDisplayName</key>
+    <string>The Eddings Index</string>
+    <key>CFBundleExecutable</key>
+    <string>TheEddingsIndex</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>15.0</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>LSUIElement</key>
+    <false/>
+    <key>NSFaceIDUsageDescription</key>
+    <string>Eddings Index uses Face ID to protect your financial credentials</string>
+    <key>BGTaskSchedulerPermittedIdentifiers</key>
+    <array>
+        <string>com.hackervalley.eddingsindex.refresh</string>
+        <string>com.hackervalley.eddingsindex.sync</string>
+    </array>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>com.hackervalley.eddingsindex</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>eddingsindex</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>

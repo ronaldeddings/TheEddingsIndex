@@ -9,16 +9,24 @@ struct AppTabBar: View {
 
         TabView(selection: $engine.selectedSection) {
             Tab("Search", systemImage: "magnifyingglass", value: .search) {
-                SearchView()
+                NavigationStack {
+                    SearchContentList()
+                }
             }
             Tab("Freedom", systemImage: "dollarsign.circle", value: .freedom) {
-                FreedomDashboard()
+                NavigationStack {
+                    FreedomDashboard()
+                }
             }
             Tab("People", systemImage: "person.2", value: .people) {
-                ContactList()
+                NavigationStack {
+                    ContactContentList()
+                }
             }
             Tab("Settings", systemImage: "gear", value: .settings) {
-                SettingsView()
+                NavigationStack {
+                    SettingsView()
+                }
             }
         }
         .tint(EIColor.gold)

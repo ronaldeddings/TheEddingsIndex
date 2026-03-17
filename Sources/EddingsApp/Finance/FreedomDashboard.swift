@@ -2,173 +2,290 @@ import SwiftUI
 import EddingsKit
 
 struct FreedomDashboard: View {
-    @Environment(EddingsEngine.self) private var engine
-    private let weeklyTarget: Double = FreedomTracker.weeklyTarget
-
-    private var velocityPercent: Double {
-        engine.freedomScore?.velocityPercent ?? 0
-    }
-
-    private var weeklyAmount: Double {
-        engine.freedomScore?.weeklyNonW2TakeHome ?? 0
-    }
-
-    private var netWorth: Double {
-        engine.freedomScore?.netWorth ?? 0
-    }
-
-    private var totalDebt: Double {
-        engine.freedomScore?.totalDebt ?? 0
-    }
-
-    private var savingsRate: Double {
-        engine.freedomScore?.savingsRate ?? 0
-    }
-
-    private var projectedDate: String {
-        engine.freedomScore?.projectedFreedomDate ?? "—"
-    }
+    @Environment(FreedomViewModel.self) private var freedomVM
+    @State private var appeared = false
 
     var body: some View {
+        @Bindable var freedomVM = freedomVM
+
         ScrollView {
             VStack(spacing: EISpacing.sectionGap) {
-                velocityHero
-                projectionCard
-                statsGrid
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Freedom Dashboard")
+                            .font(EITypography.display())
+                            .foregroundStyle(EIColor.textPrimary)
+                        Text("Your path from W-2 to financial independence")
+                            .font(EITypography.bodySmall())
+                            .foregroundStyle(EIColor.textTertiary)
+                    }
+                    Spacer()
+                    PillToggle(selection: $freedomVM.selectedPeriod)
+                }
+                .staggerFadeIn(appeared: appeared, index: 0)
+
+                VelocityHeroCard()
+                    .staggerFadeIn(appeared: appeared, index: 1)
+
+                ProjectionCard()
+                    .staggerFadeIn(appeared: appeared, index: 2)
+
+                if !freedomVM.insightText.isEmpty {
+                    InsightCard(label: "PAI Financial Insight", text: freedomVM.insightText)
+                        .staggerFadeIn(appeared: appeared, index: 3)
+                }
+
+                #if os(macOS)
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: EISpacing.sectionGap) {
+                    NetWorthCard()
+                        .staggerFadeIn(appeared: appeared, index: 4)
+                    SpendingCard()
+                        .staggerFadeIn(appeared: appeared, index: 5)
+                    DebtCard()
+                        .staggerFadeIn(appeared: appeared, index: 6)
+                    IncomeCard()
+                        .staggerFadeIn(appeared: appeared, index: 7)
+                }
+                #else
+                NetWorthCard()
+                    .staggerFadeIn(appeared: appeared, index: 4)
+                SpendingCard()
+                    .staggerFadeIn(appeared: appeared, index: 5)
+                DebtCard()
+                    .staggerFadeIn(appeared: appeared, index: 6)
+                IncomeCard()
+                    .staggerFadeIn(appeared: appeared, index: 7)
+                #endif
+
+                if !freedomVM.recentTransactions.isEmpty {
+                    CardContainer(padding: EISpacing.cardPadding) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("RECENT TRANSACTIONS")
+                                .font(EITypography.label())
+                                .foregroundStyle(EIColor.textTertiary)
+                            ForEach(freedomVM.recentTransactions) { tx in
+                                TransactionRow(transaction: tx)
+                                if tx.id != freedomVM.recentTransactions.last?.id {
+                                    Divider().background(EIColor.borderSubtle)
+                                }
+                            }
+                        }
+                    }
+                    .staggerFadeIn(appeared: appeared, index: 8)
+                }
             }
             .padding(EISpacing.detailPadding)
         }
         .background(EIColor.deep)
-        .navigationTitle("Freedom Dashboard")
-        .onAppear { engine.loadFreedomScore() }
+        .task { await freedomVM.load() }
+        .onChange(of: freedomVM.selectedPeriod) { _, newPeriod in
+            Task { await freedomVM.changePeriod(newPeriod) }
+        }
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.3)) { appeared = true }
+        }
     }
+}
 
-    private var velocityHero: some View {
-        HStack(spacing: 48) {
-            gaugeView
-            VStack(alignment: .leading, spacing: 16) {
-                let gap = max(0, weeklyTarget - weeklyAmount)
-                Text("You need ")
-                    .font(EITypography.headline())
-                    .foregroundStyle(EIColor.textPrimary)
-                + Text("$\(Int(gap).formatted()) more per week")
-                    .font(EITypography.headline())
-                    .foregroundStyle(EIColor.gold)
-                + Text(" to replace your W-2")
-                    .font(EITypography.headline())
-                    .foregroundStyle(EIColor.textPrimary)
+struct VelocityHeroCard: View {
+    @Environment(FreedomViewModel.self) private var freedomVM
+    private let weeklyTarget = FreedomTracker.weeklyTarget
 
-                Text("At current trajectory, non-W2 income covers **\(Int(velocityPercent))% of your freedom target**.")
-                    .font(EITypography.body())
-                    .foregroundStyle(EIColor.textSecondary)
+    var body: some View {
+        let weeklyAmount = freedomVM.freedomScore?.weeklyNonW2TakeHome ?? 0
+        let gap = max(0, weeklyTarget - weeklyAmount)
+        let velocity = freedomVM.freedomScore?.velocityPercent ?? 0
+
+        CardContainer(padding: EISpacing.cardPaddingLarge) {
+            HStack(spacing: 48) {
+                #if os(macOS)
+                FreedomGauge(weeklyAmount: weeklyAmount, weeklyTarget: weeklyTarget, size: 220, strokeWidth: 10)
+                #else
+                FreedomGauge(weeklyAmount: weeklyAmount, weeklyTarget: weeklyTarget, size: 180, strokeWidth: 12)
+                #endif
+
+                VStack(alignment: .leading, spacing: 16) {
+                    (Text("You need ")
+                        .font(EITypography.headline())
+                        .foregroundStyle(EIColor.textPrimary)
+                     + Text(gap, format: .currency(code: "USD").precision(.fractionLength(0)))
+                        .font(EITypography.headline())
+                        .foregroundStyle(EIColor.gold)
+                     + Text(" more per week to replace your W-2")
+                        .font(EITypography.headline())
+                        .foregroundStyle(EIColor.textPrimary))
+
+                    Text("At current trajectory, non-W2 income covers **\(Int(velocity))%** of your freedom target.")
+                        .font(EITypography.body())
+                        .foregroundStyle(EIColor.textSecondary)
+                }
             }
         }
-        .padding(EISpacing.cardPaddingLarge)
-        .background(EIColor.card)
-        .clipShape(RoundedRectangle(cornerRadius: EIRadius.xl))
-        .overlay(
-            RoundedRectangle(cornerRadius: EIRadius.xl)
-                .stroke(EIColor.border, lineWidth: 1)
-        )
     }
+}
 
-    private var gaugeView: some View {
-        ZStack {
-            Circle()
-                .stroke(EIColor.elevated, lineWidth: 10)
-            Circle()
-                .trim(from: 0, to: min(velocityPercent / 100, 1.0))
-                .stroke(
-                    EIColor.gold.gradient,
-                    style: StrokeStyle(lineWidth: 10, lineCap: .round)
-                )
-                .rotationEffect(.degrees(-90))
-                .animation(.easeOut(duration: 1.5), value: velocityPercent)
+struct ProjectionCard: View {
+    @Environment(FreedomViewModel.self) private var freedomVM
 
-            VStack(spacing: 2) {
-                Text("$\(Int(weeklyAmount).formatted())")
-                    .font(EITypography.metric())
-                    .foregroundStyle(EIColor.gold)
-                Text("of $\(Int(weeklyTarget).formatted()) / week")
+    var body: some View {
+        let projectedDate = freedomVM.freedomScore?.projectedFreedomDate ?? "—"
+
+        CardContainer(padding: EISpacing.cardPaddingLarge) {
+            VStack(spacing: 4) {
+                Text("At current velocity, you replace your W-2 income by")
                     .font(EITypography.caption())
                     .foregroundStyle(EIColor.textTertiary)
-                Text("\(Int(velocityPercent))%")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(EIColor.textSecondary)
+                Text(projectedDate)
+                    .font(EITypography.display())
+                    .foregroundStyle(EIColor.gold)
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+}
+
+struct NetWorthCard: View {
+    @Environment(FreedomViewModel.self) private var freedomVM
+
+    var body: some View {
+        let netWorth = freedomVM.freedomScore?.netWorth ?? 0
+
+        StatCard(
+            title: "Net Worth",
+            value: netWorth.formatted(.currency(code: "USD").precision(.fractionLength(0))),
+            change: netWorth > 0 ? "Calculated from all accounts" : nil,
+            changePositive: true,
+            accentColor: EIColor.emerald
+        )
+        .overlay(alignment: .bottomTrailing) {
+            if !freedomVM.netWorthHistory.isEmpty {
+                MiniSparkline(data: freedomVM.netWorthHistory, color: EIColor.emerald, height: 24)
+                    .frame(width: 80)
+                    .padding(12)
             }
         }
-        .frame(width: 220, height: 220)
     }
+}
 
-    private var projectionCard: some View {
-        VStack(spacing: 4) {
-            Text("At current velocity, you replace your W-2 income by")
-                .font(EITypography.caption())
-                .foregroundStyle(EIColor.textTertiary)
-            Text(projectedDate)
-                .font(EITypography.display())
-                .foregroundStyle(EIColor.gold)
-        }
-        .padding(EISpacing.cardPaddingLarge)
-        .frame(maxWidth: .infinity)
-        .background(EIColor.card)
-        .clipShape(RoundedRectangle(cornerRadius: EIRadius.xl))
-        .overlay(
-            RoundedRectangle(cornerRadius: EIRadius.xl)
-                .stroke(EIColor.border, lineWidth: 1)
-        )
-    }
+struct SpendingCard: View {
+    @Environment(FreedomViewModel.self) private var freedomVM
 
-    private var statsGrid: some View {
-        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 20) {
-            metricCard(
-                title: "NET WORTH",
-                value: "$\(Int(netWorth).formatted())",
-                change: netWorth > 0 ? "Calculated from all accounts" : "No snapshot data",
-                color: EIColor.emerald
-            )
-            metricCard(
-                title: "SAVINGS RATE",
-                value: "\(Int(savingsRate))%",
-                change: "Last 12 weeks",
-                color: EIColor.textPrimary
-            )
-            metricCard(
-                title: "TOTAL DEBT",
-                value: "$\(Int(totalDebt).formatted())",
-                change: totalDebt > 0 ? "Liabilities from all accounts" : "No debt tracked",
-                color: EIColor.rose
-            )
-            metricCard(
-                title: "WEEKLY GAP",
-                value: "$\(Int(max(0, weeklyTarget - weeklyAmount)).formatted())",
-                change: "To reach $\(Int(weeklyTarget).formatted())/week target",
-                color: EIColor.gold
-            )
+    var body: some View {
+        let total = freedomVM.spendingByCategory.reduce(0.0) { $0 + abs($1.amount) }
+
+        CardContainer {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("SPENDING")
+                    .font(EITypography.label())
+                    .foregroundStyle(EIColor.textTertiary)
+                Text(total, format: .currency(code: "USD").precision(.fractionLength(0)))
+                    .font(EITypography.display())
+                    .foregroundStyle(EIColor.textPrimary)
+                    .monospacedDigit()
+                if !freedomVM.spendingByCategory.isEmpty {
+                    CategoryBar(items: freedomVM.spendingByCategory)
+                }
+            }
         }
     }
+}
 
-    private func metricCard(title: String, value: String, change: String, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(EITypography.label())
-                .foregroundStyle(EIColor.textTertiary)
-                .textCase(.uppercase)
-                .tracking(0.8)
-            Text(value)
-                .font(.system(size: 28, weight: .bold))
-                .foregroundStyle(color)
-            Text(change)
-                .font(EITypography.caption())
-                .foregroundStyle(EIColor.textSecondary)
+struct DebtCard: View {
+    @Environment(FreedomViewModel.self) private var freedomVM
+
+    var body: some View {
+        let total = freedomVM.freedomScore?.totalDebt ?? 0
+
+        CardContainer {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("DEBT PAYDOWN")
+                    .font(EITypography.label())
+                    .foregroundStyle(EIColor.textTertiary)
+                Text(total, format: .currency(code: "USD").precision(.fractionLength(0)))
+                    .font(EITypography.display())
+                    .foregroundStyle(EIColor.rose)
+                    .monospacedDigit()
+                if !freedomVM.debtAccounts.isEmpty {
+                    CategoryBar(items: freedomVM.debtAccounts)
+                }
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(EISpacing.cardPaddingLarge)
-        .background(EIColor.card)
-        .clipShape(RoundedRectangle(cornerRadius: EIRadius.xl))
-        .overlay(
-            RoundedRectangle(cornerRadius: EIRadius.xl)
-                .stroke(EIColor.border, lineWidth: 1)
-        )
+    }
+}
+
+struct IncomeCard: View {
+    @Environment(FreedomViewModel.self) private var freedomVM
+
+    var body: some View {
+        let total = freedomVM.incomeStreams.reduce(0.0) { $0 + $1.amount }
+
+        CardContainer {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("INCOME STREAMS")
+                    .font(EITypography.label())
+                    .foregroundStyle(EIColor.textTertiary)
+                Text(total, format: .currency(code: "USD").precision(.fractionLength(0)))
+                    .font(EITypography.display())
+                    .foregroundStyle(EIColor.emerald)
+                    .monospacedDigit()
+                if !freedomVM.incomeStreams.isEmpty {
+                    CategoryBar(items: freedomVM.incomeStreams)
+                }
+            }
+        }
+    }
+}
+
+struct TransactionRow: View {
+    let transaction: FinancialTransaction
+
+    var body: some View {
+        HStack(spacing: 12) {
+            SourceIcon(source: .finance)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(transaction.payee ?? transaction.description ?? "Transaction")
+                    .font(EITypography.bodyLarge())
+                    .foregroundStyle(EIColor.textPrimary)
+                    .lineLimit(1)
+                HStack(spacing: 8) {
+                    if let account = transaction.accountName {
+                        Text(account)
+                            .font(EITypography.caption())
+                            .foregroundStyle(EIColor.textTertiary)
+                    }
+                    Text(transaction.transactionDate, style: .date)
+                        .font(EITypography.caption())
+                        .foregroundStyle(EIColor.textTertiary)
+                }
+            }
+
+            Spacer()
+
+            if let cat = transaction.category, !cat.isEmpty {
+                Text(cat)
+                    .font(EITypography.micro())
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(EIColor.elevated)
+                    .foregroundStyle(EIColor.textSecondary)
+                    .clipShape(RoundedRectangle(cornerRadius: EIRadius.sm))
+            }
+
+            Text(transaction.amount, format: .currency(code: "USD").precision(.fractionLength(2)))
+                .font(EITypography.body())
+                .foregroundStyle(transaction.amount > 0 ? EIColor.emerald : EIColor.textPrimary)
+                .monospacedDigit()
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+extension View {
+    func staggerFadeIn(appeared: Bool, index: Int) -> some View {
+        self
+            .opacity(appeared ? 1 : 0)
+            .offset(y: appeared ? 0 : 8)
+            .animation(.easeOut(duration: 0.25).delay(Double(index) * 0.06), value: appeared)
     }
 }

@@ -3,6 +3,7 @@ import EddingsKit
 
 struct AppSidebar: View {
     @Environment(EddingsEngine.self) private var engine
+    @Environment(FreedomViewModel.self) private var freedomVM
 
     var body: some View {
         @Bindable var engine = engine
@@ -55,25 +56,41 @@ struct AppSidebar: View {
                 }
 
                 Spacer()
+
+                if let score = freedomVM.freedomScore {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("FREEDOM VELOCITY")
+                            .font(EITypography.label())
+                            .foregroundStyle(EIColor.textTertiary)
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(EIColor.elevated)
+                                    .frame(height: 4)
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(EIColor.gold)
+                                    .frame(width: geo.size.width * min(score.velocityPercent / 100, 1.0), height: 4)
+                            }
+                        }
+                        .frame(height: 4)
+                        Text("\(Int(score.velocityPercent))%")
+                            .font(EITypography.micro())
+                            .foregroundStyle(EIColor.gold)
+                    }
+                    .padding(.horizontal, EISpacing.sidebarPadding)
+                    .padding(.bottom, 16)
+                }
             }
             .frame(minWidth: EILayout.sidebarWidth)
             .background(EIColor.surface)
+        } content: {
+            ContentListView()
+                .frame(minWidth: EILayout.contentWidth)
+                .background(EIColor.surface)
         } detail: {
-            Group {
-                switch engine.selectedSection {
-                case .search:
-                    SearchView()
-                case .freedom:
-                    FreedomDashboard()
-                case .meetings:
-                    MeetingList()
-                case .people:
-                    ContactList()
-                case .settings:
-                    SettingsView()
-                }
-            }
-            .background(EIColor.deep)
+            DetailView()
+                .background(EIColor.deep)
         }
+        .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 280)
     }
 }

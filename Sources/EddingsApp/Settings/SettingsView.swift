@@ -2,36 +2,106 @@ import SwiftUI
 import EddingsKit
 
 struct SettingsView: View {
+    @Environment(SettingsViewModel.self) private var settingsVM
+
     var body: some View {
         ScrollView {
             VStack(spacing: EISpacing.sectionGap) {
                 settingsCard(title: "Data Sources") {
-                    settingsRow(label: "SimpleFin", status: "Connected", statusColor: EIColor.emerald)
-                    settingsRow(label: "Email (IMAP)", status: "Syncing", statusColor: EIColor.emerald)
-                    settingsRow(label: "Slack", status: "Connected", statusColor: EIColor.emerald)
-                    settingsRow(label: "Fathom (Meetings)", status: "Connected", statusColor: EIColor.emerald)
-                    settingsRow(label: "VRAM Filesystem", status: "macOS only", statusColor: EIColor.textTertiary, isLast: true)
+                    ForEach(Array(settingsVM.syncSources.enumerated()), id: \.offset) { index, source in
+                        VStack(spacing: 0) {
+                            HStack {
+                                Text(source.name)
+                                    .font(EITypography.body())
+                                    .foregroundStyle(EIColor.textSecondary)
+                                Spacer()
+                                VStack(alignment: .trailing, spacing: 2) {
+                                    Text(source.status)
+                                        .font(EITypography.body())
+                                        .foregroundStyle(source.statusColor)
+                                    Text(source.lastSync)
+                                        .font(EITypography.caption())
+                                        .foregroundStyle(EIColor.textTertiary)
+                                }
+                            }
+                            .padding(.vertical, 8)
+                            if index < settingsVM.syncSources.count - 1 {
+                                Divider().background(EIColor.borderSubtle)
+                            }
+                        }
+                    }
                 }
 
                 settingsCard(title: "Index Status") {
-                    settingsRow(label: "Documents", status: "912,441", statusColor: EIColor.textPrimary)
-                    settingsRow(label: "Email chunks", status: "282,103", statusColor: EIColor.textPrimary)
-                    settingsRow(label: "Transcript chunks", status: "87,294", statusColor: EIColor.textPrimary)
-                    settingsRow(label: "Slack messages", status: "13,512", statusColor: EIColor.textPrimary)
-                    settingsRow(label: "Contacts", status: "847", statusColor: EIColor.textPrimary)
-                    settingsRow(label: "Embeddings (512d)", status: "382,441", statusColor: EIColor.textPrimary, isLast: true)
+                    ForEach(Array(settingsVM.tableCounts.enumerated()), id: \.offset) { index, item in
+                        VStack(spacing: 0) {
+                            HStack {
+                                Text(item.name)
+                                    .font(EITypography.body())
+                                    .foregroundStyle(EIColor.textSecondary)
+                                Spacer()
+                                Text(item.count.formatted())
+                                    .font(EITypography.body())
+                                    .foregroundStyle(EIColor.textPrimary)
+                                    .monospacedDigit()
+                            }
+                            .padding(.vertical, 8)
+                            if index < settingsVM.tableCounts.count - 1 {
+                                Divider().background(EIColor.borderSubtle)
+                            }
+                        }
+                    }
+
+                    Divider().background(EIColor.borderSubtle)
+                    HStack {
+                        Text("Embeddings (512d)")
+                            .font(EITypography.body())
+                            .foregroundStyle(EIColor.textSecondary)
+                        Spacer()
+                        Text(settingsVM.embeddingCount.formatted())
+                            .font(EITypography.body())
+                            .foregroundStyle(EIColor.textPrimary)
+                            .monospacedDigit()
+                    }
+                    .padding(.vertical, 8)
                 }
 
-                settingsCard(title: "iCloud Sync") {
-                    settingsRow(label: "Status", status: "Up to date", statusColor: EIColor.emerald)
-                    settingsRow(label: "Last sync", status: "4 minutes ago", statusColor: EIColor.textPrimary)
-                    settingsRow(label: "iCloud usage", status: "247 MB of 200 GB", statusColor: EIColor.textPrimary, isLast: true)
+                #if os(macOS)
+                settingsCard(title: "Database") {
+                    HStack {
+                        Text("Path")
+                            .font(EITypography.body())
+                            .foregroundStyle(EIColor.textSecondary)
+                        Spacer()
+                        Text(settingsVM.databasePath)
+                            .font(EITypography.caption())
+                            .foregroundStyle(EIColor.textTertiary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .textSelection(.enabled)
+                    }
+                    .padding(.vertical, 8)
+
+                    Divider().background(EIColor.borderSubtle)
+
+                    HStack {
+                        Text("Size")
+                            .font(EITypography.body())
+                            .foregroundStyle(EIColor.textSecondary)
+                        Spacer()
+                        Text(settingsVM.databaseSize)
+                            .font(EITypography.body())
+                            .foregroundStyle(EIColor.textPrimary)
+                    }
+                    .padding(.vertical, 8)
                 }
+                #endif
             }
             .padding(EISpacing.detailPadding)
         }
         .background(EIColor.deep)
         .navigationTitle("Settings")
+        .task { await settingsVM.load() }
     }
 
     private func settingsCard(title: String, @ViewBuilder content: () -> some View) -> some View {
@@ -40,7 +110,6 @@ struct SettingsView: View {
                 .font(EITypography.bodyLarge())
                 .foregroundStyle(EIColor.textPrimary)
                 .padding(.bottom, 12)
-
             content()
         }
         .padding(EISpacing.cardPadding)
@@ -50,25 +119,5 @@ struct SettingsView: View {
             RoundedRectangle(cornerRadius: EIRadius.xl)
                 .stroke(EIColor.border, lineWidth: 1)
         )
-    }
-
-    private func settingsRow(label: String, status: String, statusColor: Color, isLast: Bool = false) -> some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text(label)
-                    .font(EITypography.body())
-                    .foregroundStyle(EIColor.textSecondary)
-                Spacer()
-                Text(status)
-                    .font(EITypography.body())
-                    .foregroundStyle(statusColor)
-            }
-            .padding(.vertical, 8)
-
-            if !isLast {
-                Divider()
-                    .background(EIColor.borderSubtle)
-            }
-        }
     }
 }
