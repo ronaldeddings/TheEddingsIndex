@@ -2,8 +2,35 @@ import SwiftUI
 import EddingsKit
 
 struct ContactList: View {
+    @Environment(EddingsEngine.self) private var engine
     @State private var searchText = ""
     @State private var selectedTab = "depth"
+
+    private var filteredContacts: [Contact] {
+        let contacts = engine.contacts
+        if searchText.isEmpty { return contacts }
+        return contacts.filter {
+            $0.name.localizedCaseInsensitiveContains(searchText) ||
+            ($0.email ?? "").localizedCaseInsensitiveContains(searchText) ||
+            ($0.role ?? "").localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
+    private var innerCircle: [Contact] {
+        filteredContacts.filter { totalInteractions($0) >= 100 }
+    }
+
+    private var growing: [Contact] {
+        filteredContacts.filter { totalInteractions($0) >= 10 && totalInteractions($0) < 100 }
+    }
+
+    private var fading: [Contact] {
+        filteredContacts.filter { totalInteractions($0) < 10 && totalInteractions($0) > 0 }
+    }
+
+    private func totalInteractions(_ c: Contact) -> Int {
+        c.emailCount + c.meetingCount + c.slackCount
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -50,37 +77,48 @@ struct ContactList: View {
             }
             .padding(EISpacing.sidebarPadding)
 
-            List {
-                Section("Inner Circle") {
-                    ContactRow(name: "Emily Humphrey", role: "COO, Hacker Valley Media", initials: "EH", depth: .high, emails: 127, meetings: 84, slack: 1247)
-                    ContactRow(name: "Marcus Webb", role: "Content Lead, Hacker Valley", initials: "MW", depth: .high, emails: 45, meetings: 32, slack: 892)
+            if engine.contacts.isEmpty {
+                ContentUnavailableView("No Contacts", systemImage: "person.2", description: Text("Run ei-cli sync to import contacts"))
+                    .frame(maxHeight: .infinity)
+            } else {
+                List {
+                    if !innerCircle.isEmpty {
+                        Section("Inner Circle") {
+                            ForEach(innerCircle) { contact in
+                                ContactRow(contact: contact, depth: .high)
+                            }
+                        }
+                    }
+                    if !growing.isEmpty {
+                        Section("Growing") {
+                            ForEach(growing) { contact in
+                                ContactRow(contact: contact, depth: .medium)
+                            }
+                        }
+                    }
+                    if !fading.isEmpty {
+                        Section {
+                            ForEach(fading) { contact in
+                                ContactRow(contact: contact, depth: .fading)
+                            }
+                        } header: {
+                            Text("Fading")
+                                .foregroundStyle(EIColor.rose)
+                        }
+                    }
                 }
-                Section("Growing") {
-                    ContactRow(name: "Sarah Chen", role: "Head of Partnerships, Optro", initials: "SC", depth: .medium, emails: 18, meetings: 4, slack: 0)
-                    ContactRow(name: "Jess Park", role: "DevRel Lead, Mozilla", initials: "JP", depth: .high, emails: 89, meetings: 26, slack: 45)
-                }
-                Section {
-                    ContactRow(name: "Chris Cochran", role: "Co-host, Hacker Valley", initials: "CC", depth: .fading, emails: 67, meetings: 45, slack: 2100)
-                } header: {
-                    Text("Fading")
-                        .foregroundStyle(EIColor.rose)
-                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
         }
         .background(EIColor.deep)
+        .onAppear { engine.loadContacts() }
     }
 }
 
 struct ContactRow: View {
-    let name: String
-    let role: String
-    let initials: String
+    let contact: Contact
     let depth: ContactDepth
-    let emails: Int
-    let meetings: Int
-    let slack: Int
 
     enum ContactDepth {
         case high, medium, low, fading
@@ -93,6 +131,14 @@ struct ContactRow: View {
             case .fading: return EIColor.rose
             }
         }
+    }
+
+    private var initials: String {
+        let parts = contact.name.split(separator: " ")
+        if parts.count >= 2 {
+            return "\(parts[0].prefix(1))\(parts[1].prefix(1))"
+        }
+        return String(contact.name.prefix(2)).uppercased()
     }
 
     var body: some View {
@@ -113,26 +159,29 @@ struct ContactRow: View {
             .frame(width: 44, height: 44)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(name)
+                Text(contact.name)
                     .font(EITypography.bodySmall())
                     .foregroundStyle(EIColor.textPrimary)
-                Text(role)
-                    .font(EITypography.caption())
-                    .foregroundStyle(EIColor.textTertiary)
-                    .lineLimit(1)
+                if let role = contact.role, !role.isEmpty {
+                    Text(role)
+                        .font(EITypography.caption())
+                        .foregroundStyle(EIColor.textTertiary)
+                        .lineLimit(1)
+                }
             }
 
             Spacer()
 
             HStack(spacing: 6) {
-                if emails > 0 {
-                    statChip("✉ \(emails)", color: EIColor.gold)
+                if contact.emailCount > 0 {
+                    statChip("✉ \(contact.emailCount)", color: EIColor.gold)
                 }
-                if meetings > 0 {
-                    statChip("◉ \(meetings)", color: EIColor.violet)
+                if contact.meetingCount > 0 {
+                    statChip("◉ \(contact.meetingCount)", color: EIColor.violet)
                 }
-                if slack > 0 {
-                    statChip("◈ \(slack > 999 ? "\(slack/1000)K" : "\(slack)")", color: EIColor.indigo)
+                if contact.slackCount > 0 {
+                    let display = contact.slackCount > 999 ? "\(contact.slackCount/1000)K" : "\(contact.slackCount)"
+                    statChip("◈ \(display)", color: EIColor.indigo)
                 }
             }
         }

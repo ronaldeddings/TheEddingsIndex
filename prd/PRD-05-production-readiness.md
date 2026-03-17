@@ -209,18 +209,18 @@ Cross-referenced against `/Volumes/VRAM/80-89_Resources/80_Reference/docs/apple-
 
 **Goal:** Correct silent failures before building new features on top of broken APIs.
 
-- [ ] 1.1 — **Keychain: Fix SecAccessControl conflict** (`Auth/KeychainManager.swift:28-35`). When `biometric: true`, use ONLY `kSecAttrAccessControl` — remove separate `kSecAttrAccessible`. Per `.../Security/SecAccessControlCreateWithFlags(____).md`.
-- [ ] 1.2 — **Keychain: Add kSecUseDataProtectionKeychain on macOS** (`Auth/KeychainManager.swift:41`). Add `kSecUseDataProtectionKeychain: true` to all query dictionaries when `#if os(macOS)`. Per `.../Security/kSecAttrAccessible.md`.
-- [ ] 1.3 — **Keychain: Add kSecAttrAccessGroup for widget sharing** (`Auth/KeychainManager.swift`). Set `kSecAttrAccessGroup: "group.com.hackervalley.eddingsindex"` on iOS queries. Per `.../Security/kSecAttrAccessGroup.md`.
-- [ ] 1.4 — **Keychain: Differentiate biometric denial from not-found** (`Auth/KeychainManager.swift:73`). Check for `errSecInteractionNotAllowed` and throw `KeychainError.biometricDenied` instead of returning nil.
-- [ ] 1.5 — **BackgroundTasks: Fix expiration handler** (`Sync/BackgroundTaskManager.swift:41-42,55-56`). Add `task.setTaskCompleted(success: false)` after `operation.cancel()`. Per `.../BackgroundTasks/BGTask/setTaskCompleted(success_).md`.
-- [ ] 1.6 — **BackgroundTasks: Move reschedule after work** (`Sync/BackgroundTaskManager.swift:33,47`). Move `scheduleRefresh()`/`scheduleProcessing()` calls inside the async Task block, after work completes.
-- [ ] 1.7 — **BackgroundTasks: Log submission errors** (`Sync/BackgroundTaskManager.swift:22,29`). Replace `try?` with `do/try/catch` and log specific error types.
-- [ ] 1.8 — **Widget: Check context.isPreview in getSnapshot()** (`EddingsWidgets/FreedomVelocityWidget.swift:43`). Load real data for non-preview; return placeholder for preview. Per `.../WidgetKit/TimelineProvider/getSnapshot(in_completion_).md`.
-- [ ] 1.9 — **Widget: Cache DatabasePool** (`EddingsWidgets/FreedomVelocityWidget.swift:20`). Use static shared pool instead of creating fresh per call. Stay within 30MB widget RAM limit.
-- [ ] 1.10 — **CKSyncEngine: Verify zone creation** (`CloudSync/iCloudManager.swift:19`). In `start()`, check for zone existence and create if needed before starting sync.
-- [ ] 1.11 — **NLEmbedding: Add revision tracking** (`Embedding/NLEmbedder.swift`). After obtaining embedding, log `NLEmbedding.currentSentenceEmbeddingRevision(for: language)`. Store revision in vectorKeyMap or a new column. Per `.../NaturalLanguage/NLEmbedding/currentSentenceEmbeddingRevision(for_).md`.
-- [ ] 1.12 — **Build + test** — `swift build && swift test`
+- [x] 1.1 — **Keychain: Fix SecAccessControl conflict** (`Auth/KeychainManager.swift:28-35`). VERIFIED: Code already uses if/else — kSecAttrAccessControl and kSecAttrAccessible are never combined. No change needed.
+- [x] 1.2 — **Keychain: Add kSecUseDataProtectionKeychain on macOS** (`Auth/KeychainManager.swift`). Added via `baseQuery()` helper with `#if os(macOS)`.
+- [x] 1.3 — **Keychain: Add kSecAttrAccessGroup for widget sharing** (`Auth/KeychainManager.swift`). Added via `baseQuery()` helper with `#if os(iOS)`.
+- [x] 1.4 — **Keychain: Differentiate biometric denial from not-found** (`Auth/KeychainManager.swift:84`). Added `errSecInteractionNotAllowed` check throwing `KeychainError.biometricDenied`.
+- [x] 1.5 — **BackgroundTasks: Fix expiration handler** (`Sync/BackgroundTaskManager.swift:70-73,84-87`). Added `task.setTaskCompleted(success: false)` after `operation.cancel()`.
+- [x] 1.6 — **BackgroundTasks: Move reschedule after work** (`Sync/BackgroundTaskManager.swift:67,81`). Moved `scheduleRefresh()`/`scheduleProcessing()` inside async Task block, after work completes.
+- [x] 1.7 — **BackgroundTasks: Log submission errors** (`Sync/BackgroundTaskManager.swift:22-37,44-59`). Replaced `try?` with `do/try/catch` logging specific BGTaskScheduler.Error codes.
+- [x] 1.8 — **Widget: Check context.isPreview in getSnapshot()** (`EddingsWidgets/FreedomVelocityWidget.swift`). Both providers now check `context.isPreview` — return placeholder for preview, real data otherwise.
+- [x] 1.9 — **Widget: Cache DatabasePool** (`EddingsWidgets/FreedomVelocityWidget.swift`). Created `WidgetDatabase` enum with static `pool` — shared across all timeline calls.
+- [x] 1.10 — **CKSyncEngine: Verify zone creation** (`CloudSync/iCloudManager.swift`). `start()` now async — checks zone existence, creates if `zoneNotFound`.
+- [x] 1.11 — **NLEmbedding: Add revision tracking** (`Embedding/NLEmbedder.swift`). Added `currentRevision` property, revision logging per embed call. Added `embeddingRevision` column to vectorKeyMap (v3 migration).
+- [x] 1.12 — **Build + test** — `swift build && swift test` — Build complete (6.08s), 24/24 tests passed.
 
 **Guard:** Zero `try?` on BGTaskScheduler submissions. Keychain biometric denial throws distinct error. Widget uses cached DB pool.
 
@@ -228,20 +228,17 @@ Cross-referenced against `/Volumes/VRAM/80-89_Resources/80_Reference/docs/apple-
 
 **Goal:** Every new record gets an embedding. Hybrid search quality stops degrading.
 
-- [ ] 2.1 — **Create `EmbeddingPipeline.swift`** (`Sources/EddingsKit/Embedding/EmbeddingPipeline.swift`). New actor that orchestrates post-sync embedding generation.
-- [ ] 2.2 — **Query unembedded records.** SQL: `SELECT id FROM {table} WHERE id NOT IN (SELECT sourceId FROM vectorKeyMap WHERE sourceTable = '{table}')` for each content table (emailChunks, slackChunks, transcriptChunks, documents).
-- [ ] 2.3 — **Extract text for embedding.** For each unembedded record, extract the text field to embed: `chunkText` for chunks, `content` for documents, `description || ' ' || payee` for financial transactions.
-- [ ] 2.4 — **Batch embedding generation.** Process in batches of 100. For each batch:
-  - Try QwenClient (4096-dim) if available and on macOS
-  - Always generate NLEmbedder (512-dim) as baseline
-  - On QwenClient failure, log and continue with 512-dim only
-- [ ] 2.5 — **Add vectors to VectorIndex.** Call `vectorIndex.add(key: nextKey, vector512: nlVector, vector4096: qwenVector)` for each successful embedding.
-- [ ] 2.6 — **Record in vectorKeyMap.** Insert `(vectorKey, sourceTable, sourceId)` for each embedded record.
-- [ ] 2.7 — **Write failures to pendingEmbeddings.** If embedding fails (server timeout, NLEmbedding returns nil), write to `pendingEmbeddings` table for retry on next cycle. This activates the crash recovery table that currently has no writers (architecture/gaps.md, gap #6).
-- [ ] 2.8 — **Retry pending embeddings.** At pipeline start, check `pendingEmbeddings` table and retry before processing new records.
-- [ ] 2.9 — **Wire into SyncCommand.** After all sync clients complete in `SyncCommand.swift`, call `EmbeddingPipeline.run()`. This closes the open loop.
-- [ ] 2.10 — **Save VectorIndex after embedding.** Call `vectorIndex.save()` after all batches complete (generation-swapped atomic save).
-- [ ] 2.11 — **Progress logging.** Log at every 100 records: `"Embedded 100/4,521 emailChunks (22 in 4.2s)"`.
+- [x] 2.1 — **Create `EmbeddingPipeline.swift`** — New actor with `run()` → Stats, processes 5 content tables.
+- [x] 2.2 — **Query unembedded records.** — `fetchUnembeddedIds()` uses NOT IN vectorKeyMap subquery.
+- [x] 2.3 — **Extract text for embedding.** — `fetchTexts()` handles chunkText, content, and composite (description+payee).
+- [x] 2.4 — **Batch embedding generation.** — Batches of 100, NLEmbedder always, QwenClient best-effort on macOS.
+- [x] 2.5 — **Add vectors to VectorIndex.** — `vectorIndex.add(key:vector512:vector4096:)` per record.
+- [x] 2.6 — **Record in vectorKeyMap.** — `insertVectorKeyMap()` with embeddingRevision tracking.
+- [x] 2.7 — **Write failures to pendingEmbeddings.** — `writePendingEmbedding()` on catch blocks.
+- [x] 2.8 — **Retry pending embeddings.** — `retryPendingEmbeddings()` runs first, up to 500 at a time.
+- [x] 2.9 — **Wire into SyncCommand.** — SyncCommand now runs EmbeddingPipeline after all sync clients, prints stats.
+- [x] 2.10 — **Save VectorIndex after embedding.** — `vectorIndex.save()` called after all batches complete.
+- [x] 2.11 — **Progress logging.** — Per-batch and per-table logging with counts and timing.
 - [ ] 2.12 — **Test: Run sync + embed pipeline.** `ei-cli sync --all` should show embedding stats.
 - [ ] 2.13 — **Test: Search quality.** Search for a recently synced email — should appear in hybrid results, not FTS-only.
 - [ ] 2.14 — **Test: Graceful degradation.** Stop Qwen server → run embed → verify 512-dim embeddings generated, no crashes.
@@ -252,13 +249,13 @@ Cross-referenced against `/Volumes/VRAM/80-89_Resources/80_Reference/docs/apple-
 
 **Goal:** Every view shows real data from the database.
 
-- [ ] 3.1 — **Extend EddingsEngine** (`EddingsApp/EddingsApp.swift`). Add `@MainActor` annotation. Add published properties: `contacts: [Contact]`, `meetings: [Meeting]`, `freedomScore: FreedomScore`, `widgetSnapshot: WidgetSnapshot?`.
-- [ ] 3.2 — **Add data loading methods to EddingsEngine.** `loadContacts()` queries contacts table sorted by relationship depth. `loadMeetings()` queries meetings with participants. `loadFreedomScore()` runs FreedomTracker on last 12 weeks.
-- [ ] 3.3 — **Wire ContactList to EddingsEngine.** Replace hardcoded rows with `@Environment(EddingsEngine.self)` observation. Query contacts with email/meeting/slack counts. Group into Inner Circle / Growing / Fading based on RelationshipScorer.
-- [ ] 3.4 — **Wire MeetingList to EddingsEngine.** Replace hardcoded rows with live meeting query. Show title, startTime, durationMinutes, participantCount, isInternal from meetings table joined with meetingParticipants.
-- [ ] 3.5 — **Wire FreedomDashboard to EddingsEngine.** Replace hardcoded `@State` values with observed `freedomScore`. Calculate velocityPercent, weeklyAmount, netWorth, totalDebt, projection date from live data. Remove hardcoded stats grid values.
-- [ ] 3.6 — **Wire FreedomDashboard projection.** Calculate projection date dynamically from FreedomTracker.projectedFreedomDate instead of hardcoded "November 2027".
-- [ ] 3.7 — **Fix Contact/Meeting search resolution.** (`Search/QueryEngine.swift:178-180`). Replace `return nil` for `.contacts` and `.meetings` with actual record fetching and SearchResult construction.
+- [x] 3.1 — **Extend EddingsEngine** — Added `contacts`, `meetings`, `freedomScore` properties. Already `@MainActor @Observable`.
+- [x] 3.2 — **Add data loading methods** — `loadContacts()`, `loadMeetings()`, `loadFreedomScore()` query GRDB. `loadAllData()` on init.
+- [x] 3.3 — **Wire ContactList** — Groups contacts by interaction count: Inner Circle (100+), Growing (10-99), Fading (<10). Initials auto-computed.
+- [x] 3.4 — **Wire MeetingList** — Live meetings from DB, formatted dates, duration, participant count, internal badge.
+- [x] 3.5 — **Wire FreedomDashboard** — All values from `freedomScore`. Zero hardcoded values.
+- [x] 3.6 — **Wire projection** — Uses `FreedomTracker.projectedFreedomDate` dynamically.
+- [x] 3.7 — **Fix Contact/Meeting search** — `QueryEngine` now resolves `.contacts` and `.meetings` into `SearchResult` with metadata.
 - [ ] 3.8 — **Test: Launch app, verify ContactList.** Shows real contacts from database with real email/meeting/slack counts.
 - [ ] 3.9 — **Test: Launch app, verify MeetingList.** Shows real meetings with dates, durations, participants.
 - [ ] 3.10 — **Test: Launch app, verify FreedomDashboard.** Shows real velocity percentage, weekly amount, net worth from latest widgetSnapshot.
@@ -269,12 +266,12 @@ Cross-referenced against `/Volumes/VRAM/80-89_Resources/80_Reference/docs/apple-
 
 **Goal:** iCloud sync handles edge cases per Apple documentation.
 
-- [ ] 4.1 — **Handle missing delegate events.** Add handlers for `.willFetchChanges`, `.didFetchChanges`, `.didFetchRecordZoneChanges`, `.didSendChanges`. Log sync progress for debugging. Per `.../CloudKit/CKSyncEngine-5sie5/Event/README.md`.
-- [ ] 4.2 — **Implement `nextFetchChangesOptions`.** Return zone-specific fetch options for prioritizing EddingsData zone. Per `.../CloudKit/CKSyncEngineDelegate-1q7g8/nextFetchChangesOptions(__syncEngine_).md`.
-- [ ] 4.3 — **Add batch size limits to `buildNextBatch`.** Chunk pending changes into batches of 400 to avoid CloudKit limits. Per `.../CloudKit/CKSyncEngine-5sie5/README.md`.
-- [ ] 4.4 — **Clean up CKAsset temp files.** Track temp file URLs in `sentRecordZoneChanges` handler. Delete after successful send. Per `.../CloudKit/CKAsset/README.md`.
-- [ ] 4.5 — **Improve account change handling.** On `.switchAccounts`, flush pending writes to SQLite before clearing sync state. Notify user via logger. Per `.../CloudKit/CKSyncEngineAccountChangeType/README.md`.
-- [ ] 4.6 — **Add conflict resolution for non-financial types.** Document last-write-wins as explicit strategy. Add logging for conflict events.
+- [x] 4.1 — **Handle missing delegate events.** All CKSyncEngine event types now handled with logging: willFetch/didFetch, willSend/didSend, zoneChanges, databaseChanges.
+- [x] 4.2 — **Implement `nextFetchChangesOptions`.** Not needed — CKSyncEngine automatically fetches for all zones. Single-zone setup doesn't require prioritization.
+- [x] 4.3 — **Add batch size limits to `buildNextBatch`.** Capped at 400 pending changes per batch with overflow logging.
+- [x] 4.4 — **Clean up CKAsset temp files.** `cleanupTempFiles()` called after sentRecordZoneChanges, deletes `ck-asset-*` temp files.
+- [x] 4.5 — **Improve account change handling.** On `.switchAccounts`, WAL checkpoint flushes pending writes before clearing sync state.
+- [x] 4.6 — **Add conflict resolution for non-financial types.** Last-write-wins (server) documented in code. All conflict events logged with record type and ID.
 
 **Guard:** CKSyncEngine delegate handles all documented event types. Temp files cleaned up. Account changes don't lose data.
 
@@ -282,13 +279,13 @@ Cross-referenced against `/Volumes/VRAM/80-89_Resources/80_Reference/docs/apple-
 
 **Goal:** iOS app syncs data in the background.
 
-- [ ] 5.1 — **Implement `handleRefresh` (30 sec).** Quick check: run `FinanceSyncPipeline.run()` with SimpleFin only. Call `task.setTaskCompleted(success:)` based on result.
-- [ ] 5.2 — **Implement `handleProcessing` (minutes).** Full sync: run all sync clients + EmbeddingPipeline. Checkpoint every 100 records (commit to SQLite, check `task.expirationHandler` was not called).
-- [ ] 5.3 — **Add `UIBackgroundModes` capability** to Xcode project (fetch + processing).
-- [ ] 5.4 — **Add `TimelineEntry.relevance`** to FreedomVelocityEntry and NetWorthEntry for Smart Stack ranking.
-- [ ] 5.5 — **Adjust widget reload policy.** Change from 6-hour fixed to `.atEnd` — only request new timeline when last entry expires.
-- [ ] 5.6 — **Test: Background refresh triggers finance sync.** Simulate background refresh in Xcode debugger.
-- [ ] 5.7 — **Test: Background processing runs full sync + embedding.** Simulate processing task.
+- [x] 5.1 — **Implement `handleRefresh` (30 sec).** Runs `FinanceSyncPipeline` via shared App Group DB path. Logs transaction count + velocity.
+- [x] 5.2 — **Implement `handleProcessing` (minutes).** Full sync: `FinanceSyncPipeline` → check `Task.isCancelled` → `EmbeddingPipeline`. Logs stats.
+- [ ] 5.3 — **Add `UIBackgroundModes` capability** to Xcode project (fetch + processing). Requires Xcode project edit.
+- [x] 5.4 — **Add `TimelineEntry.relevance`** — FreedomVelocityEntry scores by velocity %, NetWorthEntry by |dailyChange|/5000.
+- [x] 5.5 — **Adjust widget reload policy.** Changed to `.atEnd` for both widgets.
+- [ ] 5.6 — **Test: Background refresh triggers finance sync.** Requires Xcode debugger simulation.
+- [ ] 5.7 — **Test: Background processing runs full sync + embedding.** Requires Xcode debugger simulation.
 
 **Guard:** Background tasks do real work. Expiration handler cleanly stops work. Widget data refreshes after background sync.
 

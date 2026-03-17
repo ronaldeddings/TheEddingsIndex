@@ -368,6 +368,12 @@ public final class DatabaseManager: Sendable {
             """)
         }
 
+        migrator.registerMigration("v3_embedding_revision") { db in
+            try db.alter(table: "vectorKeyMap") { t in
+                t.add(column: "embeddingRevision", .integer)
+            }
+        }
+
         return migrator
     }
 }

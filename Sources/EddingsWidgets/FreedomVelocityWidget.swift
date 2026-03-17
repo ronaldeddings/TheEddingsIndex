@@ -7,31 +7,35 @@ struct FreedomVelocityEntry: TimelineEntry {
     let weeklyAmount: Double
     let weeklyTarget: Double
     let velocityPercent: Double
+    var relevance: TimelineEntryRelevance? {
+        TimelineEntryRelevance(score: Float(velocityPercent / 100), duration: 6 * 3600)
+    }
+}
+
+private enum WidgetDatabase {
+    static let pool: DatabasePool? = {
+        guard let containerURL = FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: "group.com.hackervalley.eddingsindex"
+        ) else { return nil }
+        let dbPath = containerURL.appending(path: "eddingsindex.sqlite").path()
+        guard FileManager.default.fileExists(atPath: dbPath) else { return nil }
+        return try? DatabasePool(path: dbPath)
+    }()
 }
 
 private func loadLatestWidgetSnapshot() -> (weeklyAmount: Double, weeklyTarget: Double, velocityPercent: Double)? {
-    guard let containerURL = FileManager.default.containerURL(
-        forSecurityApplicationGroupIdentifier: "group.com.hackervalley.eddingsindex"
-    ) else { return nil }
-    let dbPath = containerURL.appending(path: "eddingsindex.sqlite").path()
-    guard FileManager.default.fileExists(atPath: dbPath) else { return nil }
-
-    do {
-        let dbPool = try DatabasePool(path: dbPath)
-        return try dbPool.read { db in
-            let row = try Row.fetchOne(
-                db,
-                sql: "SELECT weeklyAmount, weeklyTarget, velocityPercent FROM widgetSnapshots ORDER BY date DESC LIMIT 1"
-            )
-            guard let row else { return nil }
-            return (
-                weeklyAmount: row["weeklyAmount"] as Double,
-                weeklyTarget: row["weeklyTarget"] as Double,
-                velocityPercent: row["velocityPercent"] as Double
-            )
-        }
-    } catch {
-        return nil
+    guard let dbPool = WidgetDatabase.pool else { return nil }
+    return try? dbPool.read { db in
+        let row = try Row.fetchOne(
+            db,
+            sql: "SELECT weeklyAmount, weeklyTarget, velocityPercent FROM widgetSnapshots ORDER BY date DESC LIMIT 1"
+        )
+        guard let row else { return nil }
+        return (
+            weeklyAmount: row["weeklyAmount"] as Double,
+            weeklyTarget: row["weeklyTarget"] as Double,
+            velocityPercent: row["velocityPercent"] as Double
+        )
     }
 }
 
@@ -41,7 +45,17 @@ struct FreedomVelocityProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (FreedomVelocityEntry) -> Void) {
-        completion(placeholder(in: context))
+        if context.isPreview {
+            completion(placeholder(in: context))
+            return
+        }
+        let snapshot = loadLatestWidgetSnapshot()
+        completion(FreedomVelocityEntry(
+            date: .now,
+            weeklyAmount: snapshot?.weeklyAmount ?? 2847,
+            weeklyTarget: snapshot?.weeklyTarget ?? 6058,
+            velocityPercent: snapshot?.velocityPercent ?? 47
+        ))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<FreedomVelocityEntry>) -> Void) {
@@ -52,8 +66,7 @@ struct FreedomVelocityProvider: TimelineProvider {
             weeklyTarget: snapshot?.weeklyTarget ?? 6058,
             velocityPercent: snapshot?.velocityPercent ?? 47
         )
-        let nextUpdate = Calendar.current.date(byAdding: .hour, value: 6, to: .now)!
-        let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
+        let timeline = Timeline(entries: [entry], policy: .atEnd)
         completion(timeline)
     }
 }
@@ -120,30 +133,24 @@ struct NetWorthEntry: TimelineEntry {
     let date: Date
     let netWorth: Double
     let dailyChange: Double
+    var relevance: TimelineEntryRelevance? {
+        let changeScore = min(abs(Float(dailyChange)) / 5000, 1.0)
+        return TimelineEntryRelevance(score: changeScore, duration: 6 * 3600)
+    }
 }
 
 private func loadLatestNetWorthSnapshot() -> (netWorth: Double, dailyChange: Double)? {
-    guard let containerURL = FileManager.default.containerURL(
-        forSecurityApplicationGroupIdentifier: "group.com.hackervalley.eddingsindex"
-    ) else { return nil }
-    let dbPath = containerURL.appending(path: "eddingsindex.sqlite").path()
-    guard FileManager.default.fileExists(atPath: dbPath) else { return nil }
-
-    do {
-        let dbPool = try DatabasePool(path: dbPath)
-        return try dbPool.read { db in
-            let row = try Row.fetchOne(
-                db,
-                sql: "SELECT netWorth, dailyChange FROM widgetSnapshots ORDER BY date DESC LIMIT 1"
-            )
-            guard let row else { return nil }
-            return (
-                netWorth: row["netWorth"] as Double,
-                dailyChange: row["dailyChange"] as Double
-            )
-        }
-    } catch {
-        return nil
+    guard let dbPool = WidgetDatabase.pool else { return nil }
+    return try? dbPool.read { db in
+        let row = try Row.fetchOne(
+            db,
+            sql: "SELECT netWorth, dailyChange FROM widgetSnapshots ORDER BY date DESC LIMIT 1"
+        )
+        guard let row else { return nil }
+        return (
+            netWorth: row["netWorth"] as Double,
+            dailyChange: row["dailyChange"] as Double
+        )
     }
 }
 
@@ -153,7 +160,16 @@ struct NetWorthProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (NetWorthEntry) -> Void) {
-        completion(placeholder(in: context))
+        if context.isPreview {
+            completion(placeholder(in: context))
+            return
+        }
+        let snapshot = loadLatestNetWorthSnapshot()
+        completion(NetWorthEntry(
+            date: .now,
+            netWorth: snapshot?.netWorth ?? 89490,
+            dailyChange: snapshot?.dailyChange ?? 1435
+        ))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<NetWorthEntry>) -> Void) {
@@ -163,8 +179,7 @@ struct NetWorthProvider: TimelineProvider {
             netWorth: snapshot?.netWorth ?? 89490,
             dailyChange: snapshot?.dailyChange ?? 1435
         )
-        let nextUpdate = Calendar.current.date(byAdding: .hour, value: 6, to: .now)!
-        completion(Timeline(entries: [entry], policy: .after(nextUpdate)))
+        completion(Timeline(entries: [entry], policy: .atEnd))
     }
 }
 

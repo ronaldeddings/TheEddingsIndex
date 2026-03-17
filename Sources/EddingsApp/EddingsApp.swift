@@ -1,5 +1,6 @@
 import SwiftUI
 import EddingsKit
+import GRDB
 
 @main
 struct EddingsApp: App {
@@ -54,6 +55,10 @@ final class EddingsEngine {
     var selectedSection: SidebarSection = .search
     var isSearching: Bool = false
 
+    var contacts: [Contact] = []
+    var meetings: [Meeting] = []
+    var freedomScore: FreedomTracker.FreedomScore?
+
     let dbManager: DatabaseManager?
     private let queryEngine: QueryEngine?
 
@@ -78,6 +83,63 @@ final class EddingsEngine {
         }
         self.dbManager = mgr
         self.queryEngine = eng
+
+        Task { await loadAllData() }
+    }
+
+    func loadAllData() async {
+        loadContacts()
+        loadMeetings()
+        loadFreedomScore()
+    }
+
+    func loadContacts() {
+        guard let pool = dbManager?.dbPool else { return }
+        do {
+            contacts = try pool.read { db in
+                try Contact
+                    .filter(Column("isMe") == false)
+                    .order(
+                        (Column("emailCount") + Column("meetingCount") + Column("slackCount")).desc
+                    )
+                    .fetchAll(db)
+            }
+        } catch {
+            contacts = []
+        }
+    }
+
+    func loadMeetings() {
+        guard let pool = dbManager?.dbPool else { return }
+        do {
+            meetings = try pool.read { db in
+                try Meeting
+                    .order(Column("startTime").desc)
+                    .limit(50)
+                    .fetchAll(db)
+            }
+        } catch {
+            meetings = []
+        }
+    }
+
+    func loadFreedomScore() {
+        guard let pool = dbManager?.dbPool else { return }
+        do {
+            let (snapshots, transactions) = try pool.read { db -> ([FinancialSnapshot], [FinancialTransaction]) in
+                let cutoff = Calendar.current.date(byAdding: .weekOfYear, value: -12, to: Date()) ?? Date()
+                let snaps = try FinancialSnapshot
+                    .order(Column("snapshotDate").desc)
+                    .fetchAll(db)
+                let txns = try FinancialTransaction
+                    .filter(Column("transactionDate") >= cutoff)
+                    .fetchAll(db)
+                return (snaps, txns)
+            }
+            freedomScore = FreedomTracker().calculate(snapshots: snapshots, transactions: transactions)
+        } catch {
+            freedomScore = nil
+        }
     }
 
     func performSearch() {

@@ -50,13 +50,17 @@ public actor QueryEngine {
 
         var semanticResults: [(id: Int64, sourceTable: SearchResult.SourceTable, distance: Float)] = []
         if let embedding {
-            let hits = try await vectorIndex.search(vector: embedding, count: limit * 3)
-            let vectorKeys = hits.map { Int64($0.key) }
-            let keyMap = try resolveVectorKeys(vectorKeys, dbPool: dbPool)
-            semanticResults = hits.compactMap { hit in
-                let vk = Int64(hit.key)
-                guard let mapped = keyMap[vk] else { return nil }
-                return (id: mapped.sourceId, sourceTable: mapped.sourceTable, distance: hit.distance)
+            do {
+                let hits = try await vectorIndex.search(vector: embedding, count: limit * 3)
+                let vectorKeys = hits.map { Int64($0.key) }
+                let keyMap = try resolveVectorKeys(vectorKeys, dbPool: dbPool)
+                semanticResults = hits.compactMap { hit in
+                    let vk = Int64(hit.key)
+                    guard let mapped = keyMap[vk] else { return nil }
+                    return (id: mapped.sourceId, sourceTable: mapped.sourceTable, distance: hit.distance)
+                }
+            } catch {
+                // Vector search failed — continue with FTS results only
             }
         }
 
@@ -175,7 +179,42 @@ private func resolveResult(db: Database, result: RankedResult) -> SearchResult? 
             sourceLocator: txn.transactionId,
             speakers: nil
         )
-    case .contacts, .meetings:
-        return nil
+    case .contacts:
+        guard let contact = try? Contact.fetchOne(db, key: result.id) else { return nil }
+        return SearchResult(
+            id: result.id,
+            sourceTable: .contacts,
+            title: contact.name,
+            snippet: [contact.role, contact.email].compactMap { $0 }.joined(separator: " · "),
+            fullContent: nil,
+            date: contact.lastSeenAt,
+            score: result.score,
+            metadata: [
+                "email": contact.email ?? "",
+                "emailCount": "\(contact.emailCount)",
+                "meetingCount": "\(contact.meetingCount)",
+                "slackCount": "\(contact.slackCount)"
+            ],
+            sourceLocator: contact.email,
+            speakers: nil
+        )
+    case .meetings:
+        guard let meeting = try? Meeting.fetchOne(db, key: result.id) else { return nil }
+        return SearchResult(
+            id: result.id,
+            sourceTable: .meetings,
+            title: meeting.title ?? "Meeting",
+            snippet: ftsSnippet ?? meeting.description,
+            fullContent: meeting.description,
+            date: meeting.startTime,
+            score: result.score,
+            metadata: [
+                "meetingId": meeting.meetingId,
+                "durationMinutes": meeting.durationMinutes.map { "\($0)" } ?? "",
+                "participantCount": meeting.participantCount.map { "\($0)" } ?? ""
+            ],
+            sourceLocator: meeting.filePath,
+            speakers: nil
+        )
     }
 }

@@ -64,10 +64,10 @@ struct SearchCommand: AsyncParsableCommand {
         var embedding: [Float]?
         if !ftsOnly {
             do {
-                let qwen = QwenClient()
-                embedding = try await qwen.embed(query)
+                let nl = NLEmbedder()
+                embedding = try await nl.embed(query)
             } catch {
-                // Qwen server not available — fall back to FTS only
+                // NLEmbedder failed — FTS only
             }
         }
 

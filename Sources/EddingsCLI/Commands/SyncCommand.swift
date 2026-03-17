@@ -118,6 +118,32 @@ struct SyncCommand: AsyncParsableCommand {
             }
         }
 
+        // Embedding pipeline: generate embeddings for all new records
+        print("Running embedding pipeline...")
+        do {
+            let vectorDir = dir.appending(path: "vectors")
+            try FileManager.default.createDirectory(at: vectorDir, withIntermediateDirectories: true)
+            let vectorIndex = try VectorIndex(directory: vectorDir)
+            let pipeline = EmbeddingPipeline(dbPool: dbManager.dbPool, vectorIndex: vectorIndex)
+            let stats = try await pipeline.run()
+            if stats.totalEmbedded > 0 || stats.retriedPending > 0 {
+                var parts: [String] = []
+                if stats.totalEmbedded > 0 {
+                    let tableDetail = stats.byTable.map { "\($0.value) \($0.key)" }.joined(separator: ", ")
+                    parts.append("\(stats.totalEmbedded) new (\(tableDetail))")
+                }
+                if stats.retriedPending > 0 {
+                    parts.append("\(stats.retriedPending) retried")
+                }
+                print("  Embeddings: \(parts.joined(separator: ", "))")
+            } else {
+                print("  Embeddings: all records already embedded")
+            }
+        } catch {
+            print("  Embeddings: FAILED — \(error)")
+            errors.append(("embeddings", error))
+        }
+
         if errors.isEmpty {
             print("\nSync complete.")
         } else {

@@ -1,20 +1,29 @@
 import Foundation
 import NaturalLanguage
+import os
 
 public struct NLEmbedder: EmbeddingProvider, Sendable {
     public let dimensions = 512
+    private static let logger = Logger(subsystem: "com.hackervalley.eddingsindex", category: "nl-embedder")
 
     public init() {}
+
+    public var currentRevision: Int {
+        NLEmbedding.currentSentenceEmbeddingRevision(for: .english)
+    }
 
     public func embed(_ text: String) async throws -> [Float] {
         let recognizer = NLLanguageRecognizer()
         recognizer.processString(text)
         let language = recognizer.dominantLanguage ?? .english
 
+        let revision = NLEmbedding.currentSentenceEmbeddingRevision(for: language)
+
         guard let embedding = NLEmbedding.sentenceEmbedding(for: language) else {
             guard let fallback = NLEmbedding.sentenceEmbedding(for: .english) else {
                 throw EmbeddingError.modelUnavailable
             }
+            Self.logger.debug("Fell back to English embedding (rev \(NLEmbedding.currentSentenceEmbeddingRevision(for: .english)))")
             guard let vector = fallback.vector(for: text) else {
                 throw EmbeddingError.embeddingFailed
             }
@@ -34,6 +43,7 @@ public struct NLEmbedder: EmbeddingProvider, Sendable {
             return vector.map { Float($0) }
         }
 
+        Self.logger.debug("Using \(language.rawValue) embedding rev \(revision)")
         guard let vector = embedding.vector(for: text) else {
             throw EmbeddingError.embeddingFailed
         }

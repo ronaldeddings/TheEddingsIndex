@@ -13,6 +13,21 @@ public struct KeychainManager: Sendable {
         self.service = service
     }
 
+    private func baseQuery(key: String) -> [String: Any] {
+        var query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key,
+        ]
+        #if os(macOS)
+        query[kSecUseDataProtectionKeychain as String] = true
+        #endif
+        #if os(iOS)
+        query[kSecAttrAccessGroup as String] = "group.com.hackervalley.eddingsindex"
+        #endif
+        return query
+    }
+
     public func store(key: String, data: Data, access: AccessLevel = .background, biometric: Bool = false) throws {
         let accessibility: CFString = switch access {
         case .background: kSecAttrAccessibleAfterFirstUnlock
@@ -38,11 +53,7 @@ public struct KeychainManager: Sendable {
             attrs[kSecAttrAccessible as String] = accessibility
         }
 
-        let searchQuery: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: key,
-        ]
+        let searchQuery = baseQuery(key: key)
 
         let updateStatus = SecItemUpdate(searchQuery as CFDictionary, attrs as CFDictionary)
         if updateStatus == errSecSuccess {
@@ -59,19 +70,19 @@ public struct KeychainManager: Sendable {
     }
 
     public func retrieve(key: String) throws -> Data? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: key,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-        ]
+        var query = baseQuery(key: key)
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
 
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
 
         if status == errSecItemNotFound {
             return nil
+        }
+
+        if status == errSecInteractionNotAllowed {
+            throw KeychainError.biometricDenied
         }
 
         guard status == errSecSuccess else {
@@ -82,11 +93,7 @@ public struct KeychainManager: Sendable {
     }
 
     public func delete(key: String) throws {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: key,
-        ]
+        let query = baseQuery(key: key)
 
         let status = SecItemDelete(query as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else {
@@ -118,5 +125,6 @@ public struct KeychainManager: Sendable {
         case storeFailed(OSStatus)
         case retrieveFailed(OSStatus)
         case deleteFailed(OSStatus)
+        case biometricDenied
     }
 }

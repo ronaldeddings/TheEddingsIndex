@@ -2,9 +2,32 @@ import SwiftUI
 import EddingsKit
 
 struct FreedomDashboard: View {
-    @State private var velocityPercent: Double = 47
-    @State private var weeklyAmount: Double = 2847
-    private let weeklyTarget: Double = 6058
+    @Environment(EddingsEngine.self) private var engine
+    private let weeklyTarget: Double = FreedomTracker.weeklyTarget
+
+    private var velocityPercent: Double {
+        engine.freedomScore?.velocityPercent ?? 0
+    }
+
+    private var weeklyAmount: Double {
+        engine.freedomScore?.weeklyNonW2TakeHome ?? 0
+    }
+
+    private var netWorth: Double {
+        engine.freedomScore?.netWorth ?? 0
+    }
+
+    private var totalDebt: Double {
+        engine.freedomScore?.totalDebt ?? 0
+    }
+
+    private var savingsRate: Double {
+        engine.freedomScore?.savingsRate ?? 0
+    }
+
+    private var projectedDate: String {
+        engine.freedomScore?.projectedFreedomDate ?? "—"
+    }
 
     var body: some View {
         ScrollView {
@@ -17,16 +40,18 @@ struct FreedomDashboard: View {
         }
         .background(EIColor.deep)
         .navigationTitle("Freedom Dashboard")
+        .onAppear { engine.loadFreedomScore() }
     }
 
     private var velocityHero: some View {
         HStack(spacing: 48) {
             gaugeView
             VStack(alignment: .leading, spacing: 16) {
+                let gap = max(0, weeklyTarget - weeklyAmount)
                 Text("You need ")
                     .font(EITypography.headline())
                     .foregroundStyle(EIColor.textPrimary)
-                + Text("$\(Int(weeklyTarget - weeklyAmount).formatted()) more per week")
+                + Text("$\(Int(gap).formatted()) more per week")
                     .font(EITypography.headline())
                     .foregroundStyle(EIColor.gold)
                 + Text(" to replace your W-2")
@@ -52,7 +77,7 @@ struct FreedomDashboard: View {
             Circle()
                 .stroke(EIColor.elevated, lineWidth: 10)
             Circle()
-                .trim(from: 0, to: velocityPercent / 100)
+                .trim(from: 0, to: min(velocityPercent / 100, 1.0))
                 .stroke(
                     EIColor.gold.gradient,
                     style: StrokeStyle(lineWidth: 10, lineCap: .round)
@@ -80,12 +105,9 @@ struct FreedomDashboard: View {
             Text("At current velocity, you replace your W-2 income by")
                 .font(EITypography.caption())
                 .foregroundStyle(EIColor.textTertiary)
-            Text("November 2027")
+            Text(projectedDate)
                 .font(EITypography.display())
                 .foregroundStyle(EIColor.gold)
-            Text("If CrowdStrike closes → **June 2027** · If Optro + CrowdStrike → **March 2027**")
-                .font(EITypography.bodySmall())
-                .foregroundStyle(EIColor.textSecondary)
         }
         .padding(EISpacing.cardPaddingLarge)
         .frame(maxWidth: .infinity)
@@ -99,10 +121,30 @@ struct FreedomDashboard: View {
 
     private var statsGrid: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 20) {
-            metricCard(title: "NET WORTH", value: "$89,490", change: "▲ $1,435 today", color: EIColor.emerald)
-            metricCard(title: "MARCH SPENDING", value: "$8,437", change: "Savings rate: 18%", color: EIColor.textPrimary)
-            metricCard(title: "TOTAL DEBT", value: "$13,105", change: "Debt-free by Sep 2026", color: EIColor.rose)
-            metricCard(title: "HVM REVENUE (Q1)", value: "$62,000", change: "▲ 12% vs Q4", color: EIColor.gold)
+            metricCard(
+                title: "NET WORTH",
+                value: "$\(Int(netWorth).formatted())",
+                change: netWorth > 0 ? "Calculated from all accounts" : "No snapshot data",
+                color: EIColor.emerald
+            )
+            metricCard(
+                title: "SAVINGS RATE",
+                value: "\(Int(savingsRate))%",
+                change: "Last 12 weeks",
+                color: EIColor.textPrimary
+            )
+            metricCard(
+                title: "TOTAL DEBT",
+                value: "$\(Int(totalDebt).formatted())",
+                change: totalDebt > 0 ? "Liabilities from all accounts" : "No debt tracked",
+                color: EIColor.rose
+            )
+            metricCard(
+                title: "WEEKLY GAP",
+                value: "$\(Int(max(0, weeklyTarget - weeklyAmount)).formatted())",
+                change: "To reach $\(Int(weeklyTarget).formatted())/week target",
+                color: EIColor.gold
+            )
         }
     }
 

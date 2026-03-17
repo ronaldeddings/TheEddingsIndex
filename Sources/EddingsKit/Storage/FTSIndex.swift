@@ -285,10 +285,11 @@ public struct FTSIndex: Sendable {
             .filter { !$0.isEmpty }
             .map { token in
                 let cleaned = token.filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }
-                return cleaned.isEmpty ? nil : cleaned
+                return cleaned.isEmpty ? nil : "\(cleaned)*"
             }
             .compactMap { $0 }
-        return tokens.joined(separator: " ")
+        guard !tokens.isEmpty else { return "" }
+        return tokens.joined(separator: " OR ")
     }
 }
 

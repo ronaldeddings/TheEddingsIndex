@@ -16,9 +16,18 @@ public actor iCloudManager {
         self.stateURL = stateDirectory.appending(path: "ck-sync-state.dat")
     }
 
-    public func start() throws {
+    public func start() async throws {
         let container = CKContainer(identifier: self.containerID)
         let database = container.privateCloudDatabase
+
+        let zone = CKRecordZone(zoneID: zoneID)
+        do {
+            _ = try await database.recordZone(for: zoneID)
+            logger.info("Zone \(self.zoneID.zoneName) exists")
+        } catch let error as CKError where error.code == .zoneNotFound {
+            _ = try await database.save(zone)
+            logger.info("Created zone \(self.zoneID.zoneName)")
+        }
 
         let savedState: CKSyncEngine.State.Serialization?
         if let data = try? Data(contentsOf: stateURL) {
@@ -98,8 +107,14 @@ public actor iCloudManager {
 
         guard !pendingChanges.isEmpty else { return nil }
 
+        let batchLimit = 400
+        let batchChanges = Array(pendingChanges.prefix(batchLimit))
+        if pendingChanges.count > batchLimit {
+            logger.info("Batching \(batchChanges.count) of \(pendingChanges.count) pending changes")
+        }
+
         let pool = self.dbPool
-        return await CKSyncEngine.RecordZoneChangeBatch(pendingChanges: pendingChanges) { recordID in
+        return await CKSyncEngine.RecordZoneChangeBatch(pendingChanges: batchChanges) { recordID in
             Self.buildCKRecord(for: recordID, dbPool: pool)
         }
     }
@@ -139,8 +154,17 @@ public actor iCloudManager {
         case .signOut:
             logger.warning("iCloud account signed out — pausing sync")
         case .switchAccounts:
-            logger.warning("iCloud account switched — clearing local sync state")
+            logger.warning("iCloud account switched — flushing pending writes before clearing state")
+            do {
+                try dbPool.write { db in
+                    try db.execute(sql: "PRAGMA wal_checkpoint(TRUNCATE)")
+                }
+                logger.info("WAL checkpoint completed before account switch")
+            } catch {
+                logger.error("Failed to flush WAL before account switch: \(error)")
+            }
             try? FileManager.default.removeItem(at: stateURL)
+            logger.info("Sync state cleared for new account")
         case .signIn:
             logger.info("iCloud account signed in")
         @unknown default:
@@ -513,15 +537,33 @@ public actor iCloudManager {
             if localModified > serverModified {
                 server["category"] = local["category"]
                 server["categoryModifiedAt"] = local["categoryModifiedAt"]
+                logger.info("Conflict resolved: local category wins for \(local.recordID)")
+            } else {
+                logger.info("Conflict resolved: server category wins for \(local.recordID)")
             }
+        } else {
+            logger.info("Conflict resolved: last-write-wins (server) for \(local.recordType)/\(local.recordID)")
         }
 
         upsertRecord(server, into: db)
+    }
+
+    nonisolated func cleanupTempFiles(for savedRecords: [CKRecord]) {
+        for record in savedRecords {
+            for key in record.allKeys() {
+                if let asset = record[key] as? CKAsset, let url = asset.fileURL {
+                    if url.path.contains("ck-asset-") {
+                        try? FileManager.default.removeItem(at: url)
+                    }
+                }
+            }
+        }
     }
 }
 
 final class SyncDelegate: CKSyncEngineDelegate, @unchecked Sendable {
     private let manager: iCloudManager
+    private let logger = Logger(subsystem: "com.hackervalley.eddingsindex", category: "ck-delegate")
 
     init(manager: iCloudManager) {
         self.manager = manager
@@ -540,9 +582,34 @@ final class SyncDelegate: CKSyncEngineDelegate, @unchecked Sendable {
 
         case .sentRecordZoneChanges(let sentChanges):
             manager.handleSentChanges(sentChanges)
+            manager.cleanupTempFiles(for: sentChanges.savedRecords)
 
-        default:
-            break
+        case .willFetchChanges:
+            logger.info("Will fetch changes from iCloud")
+
+        case .didFetchChanges:
+            logger.info("Did fetch changes from iCloud")
+
+        case .willFetchRecordZoneChanges:
+            logger.debug("Will fetch record zone changes")
+
+        case .didFetchRecordZoneChanges(let zoneChanges):
+            logger.debug("Did fetch record zone changes for zone \(zoneChanges.zoneID.zoneName)")
+
+        case .willSendChanges:
+            logger.debug("Will send changes to iCloud")
+
+        case .didSendChanges:
+            logger.debug("Did send changes to iCloud")
+
+        case .fetchedDatabaseChanges(let dbChanges):
+            logger.info("Fetched database changes: \(dbChanges.modifications.count) mods, \(dbChanges.deletions.count) deletes")
+
+        case .sentDatabaseChanges:
+            logger.debug("Sent database changes")
+
+        @unknown default:
+            logger.debug("Unknown CKSyncEngine event")
         }
     }
 
