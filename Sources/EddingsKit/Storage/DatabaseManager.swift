@@ -2,6 +2,16 @@ import Foundation
 import GRDB
 import os
 
+public enum DataPolicy {
+    public static let cutoffDate: Date = {
+        var components = DateComponents()
+        components.year = 2025
+        components.month = 10
+        components.day = 1
+        return Calendar.current.date(from: components)!
+    }()
+}
+
 public final class DatabaseManager: Sendable {
     public let dbPool: DatabasePool
     private let logger = Logger(subsystem: "com.hackervalley.eddingsindex", category: "database")
@@ -371,6 +381,62 @@ public final class DatabaseManager: Sendable {
         migrator.registerMigration("v3_embedding_revision") { db in
             try db.alter(table: "vectorKeyMap") { t in
                 t.add(column: "embeddingRevision", .integer)
+            }
+        }
+
+        migrator.registerMigration("v4_purge_pre_october_2025") { db in
+            let cutoff = "2025-10-01T00:00:00"
+
+            let emailIds = try Int64.fetchAll(db, sql: "SELECT id FROM emailChunks WHERE emailDate < ?", arguments: [cutoff])
+            try db.execute(sql: "DELETE FROM emailChunks WHERE emailDate < ?", arguments: [cutoff])
+
+            let slackIds = try Int64.fetchAll(db, sql: "SELECT id FROM slackChunks WHERE messageDate < ?", arguments: [cutoff])
+            try db.execute(sql: "DELETE FROM slackChunks WHERE messageDate < ?", arguments: [cutoff])
+
+            let transcriptIds = try Int64.fetchAll(db, sql: """
+                SELECT id FROM transcriptChunks WHERE (year < 2025) OR (year = 2025 AND month < 10)
+            """)
+            try db.execute(sql: "DELETE FROM transcriptChunks WHERE (year < 2025) OR (year = 2025 AND month < 10)")
+
+            let meetingRowIds = try Int64.fetchAll(db, sql: """
+                SELECT id FROM meetings WHERE startTime < ? OR (year < 2025) OR (year = 2025 AND month < 10)
+            """, arguments: [cutoff])
+            try db.execute(sql: """
+                DELETE FROM meetings WHERE startTime < ? OR (year < 2025) OR (year = 2025 AND month < 10)
+            """, arguments: [cutoff])
+
+            try db.execute(sql: "DELETE FROM financialTransactions WHERE transactionDate < ?", arguments: [cutoff])
+
+            try db.execute(sql: "DELETE FROM documents WHERE modifiedAt < ?", arguments: [cutoff])
+
+            let allPurgedIds = emailIds + slackIds + transcriptIds
+            if !allPurgedIds.isEmpty {
+                try db.execute(sql: """
+                    DELETE FROM vectorKeyMap WHERE
+                        (sourceTable = 'emailChunks' AND sourceId IN (SELECT value FROM json_each(?)))
+                        OR (sourceTable = 'slackChunks' AND sourceId IN (SELECT value FROM json_each(?)))
+                        OR (sourceTable = 'transcriptChunks' AND sourceId IN (SELECT value FROM json_each(?)))
+                """, arguments: [
+                    try JSONEncoder().encode(emailIds),
+                    try JSONEncoder().encode(slackIds),
+                    try JSONEncoder().encode(transcriptIds)
+                ])
+
+                try db.execute(sql: """
+                    DELETE FROM pendingEmbeddings WHERE
+                        (sourceTable = 'emailChunks' AND sourceId IN (SELECT value FROM json_each(?)))
+                        OR (sourceTable = 'slackChunks' AND sourceId IN (SELECT value FROM json_each(?)))
+                        OR (sourceTable = 'transcriptChunks' AND sourceId IN (SELECT value FROM json_each(?)))
+                """, arguments: [
+                    try JSONEncoder().encode(emailIds),
+                    try JSONEncoder().encode(slackIds),
+                    try JSONEncoder().encode(transcriptIds)
+                ])
+            }
+
+            if !meetingRowIds.isEmpty {
+                try db.execute(sql: "DELETE FROM meetingParticipants WHERE meetingId IN (SELECT value FROM json_each(?))",
+                    arguments: [try JSONEncoder().encode(meetingRowIds)])
             }
         }
 

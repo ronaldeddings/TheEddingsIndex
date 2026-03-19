@@ -61,6 +61,8 @@ public actor FinanceSyncPipeline {
         let qboTransactions = try qboReader.readAll()
         transactions.append(contentsOf: qboTransactions)
 
+        transactions = transactions.filter { $0.transactionDate >= DataPolicy.cutoffDate }
+
         let seenIds = await stateManager.seenTransactionIds
         let dedupResult = deduplicator.deduplicate(transactions, seenIds: seenIds)
         await stateManager.updateSeenIds(dedupResult.updatedSeenIds)

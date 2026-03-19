@@ -38,6 +38,7 @@ public struct FileScanner: Sendable {
 
             for file in files {
                 if existingPaths.contains(file.path) { continue }
+                if let modified = file.modifiedDate, modified < DataPolicy.cutoffDate { continue }
 
                 let content = try? String(contentsOfFile: file.path, encoding: .utf8)
                 guard let content, !content.isEmpty else { continue }

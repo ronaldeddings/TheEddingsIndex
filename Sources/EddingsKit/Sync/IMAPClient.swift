@@ -22,11 +22,14 @@ public struct IMAPClient: Sendable {
         }
 
         let existingIds = try getExistingEmailIds()
+        let indexedPaths = try getIndexedPaths()
         var newCount = 0
         let fm = FileManager.default
 
+        let cutoffYear = Calendar.current.component(.year, from: DataPolicy.cutoffDate)
         let yearDirs = try fm.contentsOfDirectory(atPath: emailPath)
             .filter { $0.first?.isNumber == true }
+            .filter { Int($0) ?? 0 >= cutoffYear }
             .sorted()
 
         for yearDir in yearDirs {
@@ -40,8 +43,21 @@ public struct IMAPClient: Sendable {
 
             logger.info("Processing \(files.count) emails in \(yearDir)")
 
+            let cutoffPrefix = {
+                let cal = Calendar.current
+                let y = cal.component(.year, from: DataPolicy.cutoffDate)
+                let m = cal.component(.month, from: DataPolicy.cutoffDate)
+                return String(format: "%04d-%02d", y, m)
+            }()
+
             for file in files {
+                if file.count >= 7 {
+                    let prefix = String(file.prefix(7))
+                    if prefix < cutoffPrefix { continue }
+                }
+
                 let filePath = "\(yearPath)/\(file)"
+                if indexedPaths.contains(filePath) { continue }
 
                 guard let data = fm.contents(atPath: filePath) else { continue }
 
@@ -56,6 +72,7 @@ public struct IMAPClient: Sendable {
                 if EmailParser.isSpam(email) { continue }
 
                 let chunks = EmailParser.toEmailChunks(email: email, filePath: filePath)
+                    .filter { ($0.emailDate ?? .distantPast) >= DataPolicy.cutoffDate }
                 guard !chunks.isEmpty else { continue }
 
                 let allExist = chunks.allSatisfy { existingIds.contains($0.emailId) }
@@ -79,6 +96,13 @@ public struct IMAPClient: Sendable {
         try dbPool.read { db in
             let ids = try String.fetchAll(db, sql: "SELECT emailId FROM emailChunks")
             return Set(ids)
+        }
+    }
+
+    private func getIndexedPaths() throws -> Set<String> {
+        try dbPool.read { db in
+            let paths = try String.fetchAll(db, sql: "SELECT DISTINCT emailPath FROM emailChunks WHERE emailPath IS NOT NULL")
+            return Set(paths)
         }
     }
 }

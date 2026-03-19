@@ -53,6 +53,8 @@ public struct FathomClient: Sendable {
                 filePath: path
             )
 
+            if let meetingDate = frontmatter.date, meetingDate < DataPolicy.cutoffDate { continue }
+
             guard !chunks.isEmpty else { continue }
 
             try dbPool.write { db in

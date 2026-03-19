@@ -64,6 +64,7 @@ public struct SlackClient: Sendable {
                 guard !messages.isEmpty else { continue }
 
                 let date = Self.dateFormatter.date(from: dateStr)
+                if let date, date < DataPolicy.cutoffDate { continue }
                 let components = date.map { Calendar.current.dateComponents([.year, .month], from: $0) }
                 let year = components?.year ?? 0
                 let month = components?.month ?? 0
