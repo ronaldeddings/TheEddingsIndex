@@ -7,11 +7,8 @@
     <key>ProgramArguments</key>
     <array>
         <string>/Volumes/VRAM/00-09_System/01_Tools/TheEddingsIndex/.build/release/ei-cli</string>
-        <string>sync</string>
-        <string>--all</string>
+        <string>watch</string>
     </array>
-    <key>StartInterval</key>
-    <integer>43200</integer>
     <key>RunAtLoad</key>
     <true/>
     <key>WorkingDirectory</key>
@@ -21,6 +18,6 @@
     <key>StandardErrorPath</key>
     <string>/Users/ronaldeddings/Library/Logs/vram/reality/error.log</string>
     <key>KeepAlive</key>
-    <false/>
+    <true/>
 </dict>
 </plist>

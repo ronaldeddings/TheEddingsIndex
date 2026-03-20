@@ -77,43 +77,47 @@ public actor VectorIndex {
         #endif
     }
 
-    private var reserved4096: USearchKey = 0
+    private var reserved4096: UInt32 = 0
 
     public func add4096(key: USearchKey, vector: [Float]) throws {
         #if os(macOS)
         guard let idx = index4096 else { return }
-        if key >= reserved4096 {
-            let newCap = max(key + 1, reserved4096 * 2)
-            try idx.reserve(UInt32(newCap))
+        let currentCount = UInt32(try idx.count)
+        if currentCount >= reserved4096 {
+            let newCap = max(currentCount + 1024, reserved4096 * 2)
+            try idx.reserve(newCap)
             reserved4096 = newCap
         }
         try idx.add(key: key, vector: vector)
         #endif
     }
 
-    private var reserved512: USearchKey = 0
+    private var reserved512: UInt32 = 0
 
     public func add(key: USearchKey, vector512: [Float], vector4096: [Float]? = nil) throws {
         #if os(iOS)
         if let pending = pendingIndex512 {
-            if key >= reserved512 {
-                let newCap = max(key + 1, reserved512 * 2)
-                try pending.reserve(UInt32(newCap))
+            let pendingCount = UInt32(try pending.count)
+            if pendingCount >= reserved512 {
+                let newCap = max(pendingCount + 1024, reserved512 * 2)
+                try pending.reserve(newCap)
                 reserved512 = newCap
             }
             try pending.add(key: key, vector: vector512)
         }
         #else
-        if key >= reserved512 {
-            let newCap = max(key + 1, reserved512 * 2)
-            try index512.reserve(UInt32(newCap))
+        let count512 = UInt32(try index512.count)
+        if count512 >= reserved512 {
+            let newCap = max(count512 + 1024, reserved512 * 2)
+            try index512.reserve(newCap)
             reserved512 = newCap
         }
         try index512.add(key: key, vector: vector512)
         if let v4096 = vector4096, let idx = index4096 {
-            if key >= reserved4096 {
-                let newCap = max(key + 1, reserved4096 * 2)
-                try idx.reserve(UInt32(newCap))
+            let count4096 = UInt32(try idx.count)
+            if count4096 >= reserved4096 {
+                let newCap = max(count4096 + 1024, reserved4096 * 2)
+                try idx.reserve(newCap)
                 reserved4096 = newCap
             }
             try idx.add(key: key, vector: v4096)

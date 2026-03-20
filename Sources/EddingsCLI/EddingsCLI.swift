@@ -10,6 +10,7 @@ struct EddingsCLI: AsyncParsableCommand {
             SearchCommand.self,
             StatusCommand.self,
             MigrateCommand.self,
+            WatchCommand.self,
         ],
         defaultSubcommand: StatusCommand.self
     )

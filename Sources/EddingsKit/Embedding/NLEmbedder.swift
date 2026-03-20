@@ -12,9 +12,12 @@ public struct NLEmbedder: EmbeddingProvider, Sendable {
         NLEmbedding.currentSentenceEmbeddingRevision(for: .english)
     }
 
+    private static let maxEmbedLength = 8192
+
     public func embed(_ text: String) async throws -> [Float] {
+        let input = text.count > Self.maxEmbedLength ? String(text.prefix(Self.maxEmbedLength)) : text
         let recognizer = NLLanguageRecognizer()
-        recognizer.processString(text)
+        recognizer.processString(input)
         let language = recognizer.dominantLanguage ?? .english
 
         let revision = NLEmbedding.currentSentenceEmbeddingRevision(for: language)
@@ -24,7 +27,7 @@ public struct NLEmbedder: EmbeddingProvider, Sendable {
                 throw EmbeddingError.modelUnavailable
             }
             Self.logger.debug("Fell back to English embedding (rev \(NLEmbedding.currentSentenceEmbeddingRevision(for: .english)))")
-            guard let vector = fallback.vector(for: text) else {
+            guard let vector = fallback.vector(for: input) else {
                 throw EmbeddingError.embeddingFailed
             }
             return vector.map { Float($0) }
@@ -37,14 +40,14 @@ public struct NLEmbedder: EmbeddingProvider, Sendable {
             guard fallback.dimension == dimensions else {
                 throw EmbeddingError.embeddingFailed
             }
-            guard let vector = fallback.vector(for: text) else {
+            guard let vector = fallback.vector(for: input) else {
                 throw EmbeddingError.embeddingFailed
             }
             return vector.map { Float($0) }
         }
 
         Self.logger.debug("Using \(language.rawValue) embedding rev \(revision)")
-        guard let vector = embedding.vector(for: text) else {
+        guard let vector = embedding.vector(for: input) else {
             throw EmbeddingError.embeddingFailed
         }
         return vector.map { Float($0) }

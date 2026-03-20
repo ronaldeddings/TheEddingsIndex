@@ -95,6 +95,62 @@ public struct SlackClient: Sendable {
         return count
     }
 
+    public func indexSingleFile(path: String) throws -> [Int64] {
+        guard path.hasSuffix(".json") else { return [] }
+        let fm = FileManager.default
+        guard let data = fm.contents(atPath: path) else { return [] }
+
+        let url = URL(filePath: path)
+        let filename = url.lastPathComponent
+        let channel = url.deletingLastPathComponent().lastPathComponent
+        let dateStr = filename.replacingOccurrences(of: ".json", with: "")
+
+        let messages: [SlackMessage]
+        do {
+            messages = try SlackParser.parseMessages(data: data)
+        } catch {
+            logger.debug("Failed to parse \(filename): \(error.localizedDescription)")
+            return []
+        }
+
+        guard !messages.isEmpty else { return [] }
+
+        let date = Self.dateFormatter.date(from: dateStr)
+        if let date, date < DataPolicy.cutoffDate { return [] }
+        let components = date.map { Calendar.current.dateComponents([.year, .month], from: $0) }
+        let year = components?.year ?? 0
+        let month = components?.month ?? 0
+        let quarter = ((month - 1) / 3) + 1
+
+        let channelType = detectChannelType(channel)
+        let chunks = SlackParser.toSlackChunks(
+            messages: messages,
+            channel: channel,
+            channelType: channelType,
+            messageDate: date ?? Date(),
+            year: year,
+            month: month,
+            quarter: quarter
+        )
+
+        let existingKeys = try getExistingKeys()
+        var insertedIds: [Int64] = []
+
+        try dbPool.write { db in
+            for var chunk in chunks {
+                let key = "\(channel)|\(dateStr)|\(chunk.chunkIndex ?? 0)"
+                if existingKeys.contains(key) { continue }
+                try chunk.insert(db)
+                if let id = chunk.id {
+                    insertedIds.append(id)
+                }
+            }
+        }
+
+        logger.info("SlackClient indexed \(insertedIds.count) chunks from \(channel)/\(filename)")
+        return insertedIds
+    }
+
     private func getExistingKeys() throws -> Set<String> {
         try dbPool.read { db in
             let rows = try Row.fetchAll(db, sql: """

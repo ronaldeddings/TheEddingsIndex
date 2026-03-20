@@ -69,6 +69,52 @@ public struct FileScanner: Sendable {
         return newCount
     }
 
+    public func indexSingleFile(path: String) throws -> Int64? {
+        let url = URL(filePath: path)
+        let ext = url.pathExtension.lowercased()
+        guard indexableExtensions.contains(ext) else { return nil }
+
+        let fm = FileManager.default
+        let size = (try? fm.attributesOfItem(atPath: path)[.size] as? Int) ?? 0
+        guard size < 1_000_000 else { return nil }
+
+        let existingPaths = try getExistingPaths()
+        guard !existingPaths.contains(path) else { return nil }
+
+        let values = try? url.resourceValues(forKeys: [.contentModificationDateKey, .creationDateKey])
+        let modifiedDate = values?.contentModificationDate
+        let createdDate = values?.creationDate
+
+        if let modifiedDate, modifiedDate < DataPolicy.cutoffDate { return nil }
+
+        let content = try? String(contentsOfFile: path, encoding: .utf8)
+        guard let content, !content.isEmpty else { return nil }
+
+        let jd = extractJohnnyDecimal(from: path)
+
+        var docId: Int64?
+        try dbPool.write { db in
+            var doc = Document(
+                path: path,
+                filename: url.lastPathComponent,
+                content: content,
+                extension: ext,
+                fileSize: Int64(content.utf8.count),
+                modifiedAt: modifiedDate,
+                area: jd.area,
+                category: jd.category,
+                contentType: "file",
+                createdAt: createdDate,
+                indexedAt: Date()
+            )
+            try doc.insert(db)
+            docId = doc.id
+        }
+
+        logger.info("FileScanner indexed \(url.lastPathComponent)")
+        return docId
+    }
+
     private func findIndexableFiles(in directory: String) throws -> [FileInfo] {
         var results: [FileInfo] = []
         let fm = FileManager.default

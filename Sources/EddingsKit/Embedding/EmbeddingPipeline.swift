@@ -197,6 +197,52 @@ public actor EmbeddingPipeline {
         }
     }
 
+    public func embedRecord(table: String, id: Int64) async throws {
+        let textColumn = Self.textColumnFor(table)
+        let compositeColumns = Self.compositeColumnsFor(table)
+
+        let texts = try Self.fetchTexts(
+            table: table,
+            ids: [id],
+            textColumn: textColumn,
+            compositeColumns: compositeColumns,
+            dbPool: dbPool
+        )
+        guard let (_, text) = texts.first, !text.isEmpty else { return }
+
+        do {
+            let vector512 = try await nlEmbedder.embed(text)
+
+            var vector4096: [Float]? = nil
+            #if os(macOS)
+            do {
+                vector4096 = try await qwenClient.embed(text)
+            } catch {
+                logger.debug("Qwen unavailable for \(table)/\(id), using 512-dim only")
+            }
+            #endif
+
+            let nextKey = try Self.nextVectorKey(dbPool: dbPool)
+            try await vectorIndex.add(key: nextKey, vector512: vector512, vector4096: vector4096)
+
+            let revision = nlEmbedder.currentRevision
+            try Self.insertVectorKeyMap(
+                dbPool: dbPool,
+                vectorKey: Int64(nextKey),
+                sourceTable: table,
+                sourceId: id,
+                embeddingRevision: revision
+            )
+        } catch {
+            logger.warning("Embedding failed for \(table)/\(id): \(error)")
+            try Self.writePendingEmbedding(dbPool: dbPool, table: table, sourceId: id)
+        }
+    }
+
+    public func saveIndex() async throws {
+        try await vectorIndex.save()
+    }
+
     private func retryPendingEmbeddings() async throws -> Int {
         let pending: [(id: Int64, table: String, sourceId: Int64)] = try Self.fetchPending(dbPool: dbPool)
 
