@@ -80,23 +80,25 @@ TheEddingsIndex is a Swift multiplatform personal intelligence platform (macOS +
 
 ---
 
-## EddingsKit Subsystems (53 files)
+## EddingsKit Subsystems (57+ files)
 
 The shared library is organized into 7 subsystems:
 
-### Storage (4 files)
-- **DatabaseManager** — GRDB `DatabasePool`, WAL mode, schema migrations
+### Storage (5 files)
+- **DatabaseManager** — GRDB `DatabasePool`, WAL mode, schema migrations (v1–v3), `DataPolicy.cutoffDate` (Oct 1, 2025)
+- **DataAccess** — `Sendable` struct for typed read queries: contacts, meetings, interaction timelines, financial aggregations, search result resolution
 - **FTSIndex** — FTS5 BM25 search across 5 content tables with column weighting
 - **VectorIndex** — USearch HNSW actor (thread-safe mutations, concurrent reads)
 - **StateManager** — Sync checkpoint persistence
 
-### Sync/Import (11 files)
+### Sync/Import (13 files)
 - **SimpleFinClient** — Banking API integration (OAuth)
 - **QBOReader** — QuickBooks Online CSV deposits
-- **IMAPClient** — Email JSON file parsing from VRAM
-- **SlackClient** — Slack export parsing
-- **FathomClient** — Meeting transcript sync
-- **FileScanner** — Recursive VRAM filesystem scanning
+- **IMAPClient** — Email JSON file parsing from VRAM; `indexSingleFile(path:)` for real-time ingestion
+- **SlackClient** — Slack export parsing; `indexSingleFile(path:)` for real-time ingestion
+- **FathomClient** — Meeting transcript sync; `indexSingleFile(path:)` for real-time ingestion
+- **FileScanner** — Recursive VRAM filesystem scanning; `indexSingleFile(path:)` for real-time ingestion
+- **FileWatcher** — FSEvents-based file watcher actor (`CoreServices.FSEventStreamCreate`); monitors 10 VRAM paths with 2-second coalescing; routes events to sync clients + `EmbeddingPipeline`
 - **CalDAVClient** — Calendar sync for meetings
 - **PostgresMigrator** — One-time 1.3M+ record migration from PostgreSQL
 - **FinanceSyncPipeline** — Orchestrates finance: aggregation → dedup → FreedomTracker → categorization
@@ -112,11 +114,12 @@ The shared library is organized into 7 subsystems:
 - **SmartChunker** — Context-aware text chunking (256-512 token windows)
 - **Deduplicator** — Exact ID + fuzzy (amount + date + payee) matching
 
-### Embedding (4 files)
+### Embedding (5 files)
 - **EmbeddingProvider** — Protocol: `embed(_ text:) → [Float]`
-- **NLEmbedder** — 512-dim via NaturalLanguage framework
+- **NLEmbedder** — 512-dim via NaturalLanguage framework; revision tracking via `currentSentenceEmbeddingRevision(for:)`
 - **QwenClient** — 4096-dim via HTTP API to localhost:8081
 - **CoreMLEmbedder** — 4096-dim CoreML (currently a stub)
+- **EmbeddingPipeline** — Actor orchestrating post-sync embedding generation. Processes 5 content tables (emailChunks, slackChunks, transcriptChunks, documents, financialTransactions). Supports batch `run()` for catchup and `embedRecord(table:id:)` for real-time single-record embedding from FileWatcher. Writes failures to `pendingEmbeddings` for retry.
 
 See [embeddings.md](embeddings.md) for deep dive.
 
@@ -151,7 +154,8 @@ All `Codable` structs with `Sendable` compliance:
 ## CLI Commands
 
 ```bash
-ei-cli sync --all           # Sync all data sources
+ei-cli watch                # Start FSEvents watcher daemon (primary mode — runs catchup sync then watches VRAM)
+ei-cli sync --all           # Sync all data sources + run embedding pipeline
 ei-cli sync --finance       # SimpleFin + QBO only
 ei-cli sync --files         # VRAM filesystem scanning
 ei-cli sync --slack         # Slack exports
@@ -206,12 +210,31 @@ Tab-based navigation with safe area handling. Same views adapted for mobile layo
 | ContactList | People | Relationships sorted by depth/recent/fading/companies |
 | SettingsView | Settings | App configuration |
 
+### ViewModels (5 files)
+
+All `@Observable @MainActor`, wired to live data via `DataAccess` and GRDB queries:
+
+| ViewModel | Purpose |
+|-----------|---------|
+| `PeopleViewModel` | Contacts by depth (Inner Circle ≥100, Growing 10–99, Peripheral <10), relationship scoring, interaction timelines |
+| `SearchViewModel` | Query debouncing (300ms), NLEmbedder 512-dim embedding, source filtering |
+| `FreedomViewModel` | Velocity calculation, net worth history, spending/income categorization, period selection |
+| `MeetingsViewModel` | Meeting grouping by date buckets (today, this week, earlier), participants, transcript excerpts |
+| `SettingsViewModel` | Sync source status, table counts, database size, embedding counts |
+
 ### EddingsEngine (Observable State Container)
 
 The main app state container managing:
-- `searchResults`, `searchQuery`, `selectedSection`, `isSearching`
-- Initializes: `DatabaseManager`, `QueryEngine`, `VectorIndex`
-- Executes async search with error recovery
+- All dependencies: `DatabaseManager`, `QueryEngine`, `VectorIndex`, `DataAccess`, `StateManager`
+- Instantiates and provides all 5 ViewModels as environment objects
+- Bootstraps on launch: loads freedom → people → meetings → settings sequentially
+- macOS: 3-column `NavigationSplitView` via `AppSidebar` with `@SceneStorage` for persistent section selection
+- iOS: `TabView` via `AppTabBar`
+
+### Reusable Components (12 files)
+
+`Sources/EddingsApp/Components/`:
+`CardContainer`, `CategoryBar`, `DepthBadge`, `FreedomGauge`, `InsightCard`, `InteractionTimeline`, `MiniSparkline`, `PillToggle`, `SourceIcon`, `StatCard`, `StatChip`, `ContentListView`
 
 ---
 
@@ -236,10 +259,21 @@ The main app state container managing:
 | Setting | Value |
 |---------|-------|
 | Label | `com.vram.eddings-index` |
-| Command | `.build/release/ei-cli sync --all` |
-| Interval | 43,200 seconds (12 hours) |
-| RunAtLoad | true |
+| Command | `/Volumes/VRAM/.../ei-cli watch` |
+| KeepAlive | `true` (launchd restarts on crash) |
+| RunAtLoad | `true` |
 | Logs | `~/Library/Logs/vram/reality/sync.log` + `error.log` |
+
+The launch agent runs `ei-cli watch` as a continuous daemon. On startup, it performs a full catchup sync (all 5 pipelines + embedding pipeline), then starts the FSEvents file watcher monitoring 10 VRAM paths. `KeepAlive: true` replaces the previous `StartInterval: 43200` (12-hour polling) model.
+
+## Build & Distribution
+
+**File:** `scripts/build.sh`
+
+Complete macOS build pipeline: release/debug modes, signing with Developer ID Application cert (HACKER VALLEY MEDIA, LLC), DMG creation with versioned naming, optional notarization via `xcrun`. Verifies linkage (checks for external dylibs) and applies hardened runtime entitlements.
+
+**Entitlements:** `Sources/EddingsApp/EddingsIndex.entitlements` — app sandbox, network, file access
+**Info.plist:** `Sources/EddingsApp/AppInfo.plist`
 
 ---
 

@@ -216,7 +216,7 @@ All tables created in a single `v1_core_tables` migration.
 | vector4096 | BLOB | |
 | createdAt | DATETIME | DEFAULT CURRENT_TIMESTAMP |
 
-**Status:** Schema exists but **no code writes to this table**. Designed for iOS background task crash recovery.
+**Status:** Active. `EmbeddingPipeline` writes to this table when embedding fails (catch blocks in both `run()` and `embedRecord()`). `retryPendingEmbeddings()` processes up to 500 pending records on each pipeline run.
 
 #### vectorKeyMap
 
@@ -225,8 +225,9 @@ All tables created in a single `v1_core_tables` migration.
 | vectorKey | INTEGER | PRIMARY KEY |
 | sourceTable | TEXT | NOT NULL |
 | sourceId | INTEGER | NOT NULL |
+| embeddingRevision | INTEGER | (v3 migration) |
 
-Maps USearch HNSW vector keys to source records across multiple tables. The indirection allows a single vector index to reference records from emailChunks, slackChunks, transcriptChunks, etc.
+Maps USearch HNSW vector keys to source records across multiple tables. The indirection allows a single vector index to reference records from emailChunks, slackChunks, transcriptChunks, documents, and financialTransactions. The `embeddingRevision` column (added in v3 migration) records which `NLEmbedding.currentSentenceEmbeddingRevision(for:)` value generated each vector, enabling detection of model changes after OS updates.
 
 #### widgetSnapshots
 
@@ -270,6 +271,16 @@ Adds the `meetingParticipants` junction table and extends existing tables with r
 | documents | `createdAt`, `indexedAt` |
 
 Quarter values are backfilled from existing month data during migration.
+
+### Migration v3: Embedding Revision Tracking
+
+Adds `embeddingRevision` column to `vectorKeyMap` to track which NLEmbedding model version generated each vector. This enables detection of model changes after OS updates and targeted re-embedding.
+
+#### Column additions (v3)
+
+| Table | New Columns |
+|-------|-------------|
+| vectorKeyMap | `embeddingRevision INTEGER` |
 
 ---
 

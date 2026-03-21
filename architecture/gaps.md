@@ -6,23 +6,7 @@ Known gaps between the planned architecture and current implementation, categori
 
 ## Critical Gaps
 
-### 1. New Data Receives No Embeddings
-
-**Status:** Records added via sync pipelines (new emails, Slack messages, transcripts) do NOT receive Qwen 4096-dim embeddings. Only the one-time PostgreSQL migration populates vectors. This means hybrid search quality degrades over time as the ratio of unembedded records grows.
-
-**Files affected:**
-- `Sources/EddingsKit/Sync/SyncCommand.swift` — no embedding step after data insertion
-- `Sources/EddingsKit/Sync/IMAPClient.swift` — inserts to SQLite only
-- `Sources/EddingsKit/Sync/SlackClient.swift` — inserts to SQLite only
-- `Sources/EddingsKit/Sync/FathomClient.swift` — inserts to SQLite only
-
-**What's needed:** A post-sync embedding job that:
-1. Queries records missing from `vectorKeyMap`
-2. Generates embeddings via QwenClient (or NLEmbedder for 512-dim)
-3. Adds vectors to USearch
-4. Records mappings in `vectorKeyMap`
-
-### 2. CoreMLEmbedder Is a Stub
+### 1. CoreMLEmbedder Is a Stub
 
 **Status:** `Sources/EddingsKit/Embedding/CoreMLEmbedder.swift` throws `EmbeddingError.modelUnavailable` on all calls. The init itself throws, making the type unconstructible.
 
@@ -30,62 +14,29 @@ Known gaps between the planned architecture and current implementation, categori
 
 **What's needed:** CoreML model compilation of Qwen3, or alternatively accept HTTP dependency as the production architecture and remove the stub.
 
-### 3. SwiftUI App Views Use Hardcoded Data
-
-**Status:** All main app views display hardcoded/mock data instead of querying the database:
-
-- **ContactList** (`Sources/EddingsApp/Contacts/ContactList.swift`) — Hardcoded contact rows: "Emily Humphrey", "Marcus Webb", "Sarah Chen", "Jess Park", "Chris Cochran". Not wired to SQLite contacts table.
-
-- **MeetingList** (`Sources/EddingsApp/Meetings/MeetingList.swift`) — Hardcoded meeting rows: "CISO Roundtable Prep", "Emily 1:1", "Optro Kick-off". Not wired to SQLite meetings table.
-
-- **FreedomDashboard** (`Sources/EddingsApp/Finance/FreedomDashboard.swift`) — Hardcoded `@State` values: `velocityPercent = 47`, `weeklyAmount = 2847`. Stats grid has hardcoded values ("$89,490", "$8,437", "$13,105", "$62,000"). Projection text is hardcoded ("November 2027", "CrowdStrike", "Optro"). Not wired to `widgetSnapshots` or `financialTransactions` tables.
-
-**Impact:** The SwiftUI app is a visual prototype only. It demonstrates the design system correctly but shows zero live data. Only `SearchView` and `EddingsEngine` appear to be wired to the actual database.
-
-**What's needed:** Replace hardcoded data in each view with GRDB queries to the database. Use `@Observable` patterns on `EddingsEngine` to expose live data.
-
 ---
 
 ## Moderate Gaps
 
-### 4. iOS Background Tasks Are Stubs
+### 2. iOS Background Tasks — Partially Implemented
 
-**Status:** `Sources/EddingsKit/Sync/BackgroundTaskManager.swift` registers both task identifiers but the handlers are empty:
+**Status:** PRD-05 implemented real handlers: `handleRefresh` runs `FinanceSyncPipeline`, `handleProcessing` runs full sync + `EmbeddingPipeline`. Expiration handlers call `setTaskCompleted(success: false)`. Task submission errors are logged.
 
-```swift
-// TODO: Implement quick transaction check    (line 37)
-// TODO: Implement full sync with checkpointing    (line 51)
-```
+**Remaining:** `UIBackgroundModes` capability still requires Xcode project edit (fetch + processing). Without this capability, tasks are registered but never scheduled by the system.
 
-Both `handleRefresh()` and `handleProcessing()` immediately call `task.setTaskCompleted(success: true)` without doing any work.
-
-**Impact:** iOS app will never sync data in the background. Data is only current when the app is actively open.
-
-### 5. CalDAV Calendar Sync Is a Stub
+### 3. CalDAV Calendar Sync Is a Stub
 
 **Status:** `Sources/EddingsKit/Sync/CalDAVClient.swift` logs "CalDAV sync not yet implemented — Phase 5 stub" and returns 0.
 
 **Impact:** Meeting data only comes from Fathom transcripts. Calendar events without transcripts (e.g., events not recorded by Fathom) are not captured.
 
-### 6. pendingEmbeddings Table Has No Writers
-
-**Status:** The `pendingEmbeddings` table exists in the schema (migration v1) but no sync code writes to it. It was designed for iOS crash recovery during background embedding generation.
-
-**Impact:** No crash recovery for in-flight embedding operations. If the app terminates during embedding, work is lost.
-
-### 7. Documents and Financial Transactions Have No Embeddings
-
-**Status:** Only transcriptChunks, emailChunks, and slackChunks received 4096-dim vectors during PostgreSQL migration. The `documents` and `financialTransactions` tables have no entries in `vectorKeyMap`.
-
-**Impact:** Document and financial transaction search is FTS-only. Semantic search (e.g., "operational expenses for cloud infrastructure") won't surface relevant transactions unless the exact keywords match.
-
-### 8. Widget Snapshot Generation Only Runs During Finance Sync
+### 4. Widget Snapshot Generation Only Runs During Finance Sync
 
 **Status:** `widgetSnapshots` rows are only created by `FinanceSyncPipeline.run()`. If finance sync fails or is skipped, widget data goes stale.
 
 **Impact:** Widgets show stale data. No independent refresh mechanism.
 
-### 9. Financial Precision Uses Double Instead of Decimal
+### 5. Financial Precision Uses Double Instead of Decimal
 
 **Status:** `Sources/EddingsKit/Models/Transaction.swift:12` has a TODO:
 ```
@@ -98,18 +49,7 @@ All financial amounts use `Double`, which has floating-point precision issues fo
 
 ---
 
-### 10. Contact and Meeting Search Returns Nil
-
-**Status:** `Sources/EddingsKit/Search/QueryEngine.swift:178-180` — The `resolveResult()` function returns `nil` for `.contacts` and `.meetings` source tables:
-
-```swift
-case .contacts, .meetings:
-    return nil
-```
-
-**Impact:** Even if contacts or meetings are returned by FTS or semantic search, they are silently dropped during result resolution. Only document, email, Slack, transcript, and financial results are surfaced.
-
-### 11. Intelligence Stubs (RelationshipScorer, ActivityDigest)
+### 6. Intelligence Stubs (RelationshipScorer, ActivityDigest)
 
 **Status:** Two intelligence modules exist as files but have minimal or stub implementations:
 
@@ -118,22 +58,23 @@ case .contacts, .meetings:
 
 Note: **AnomalyDetector** is actually fully implemented (unusual amounts via std deviation, duplicate charge detection, price increase detection) — not a stub.
 
-**Impact:** No relationship depth scoring or activity summaries are generated. The ContactList view can't sort by "depth" or "fading" from real data.
+**Impact:** No relationship depth scoring or activity summaries are generated.
 
-### 12. Categorizer Missing Tier 3 (Heuristics) and Tier 4 (PAI Inference)
+### 7. Categorizer Missing Tier 3 (Heuristics) and Tier 4 (PAI Inference)
 
 **Status:** The Categorizer implements Tier 1 (exact merchant lookup, 70+ entries) and Tier 2 (regex pattern matching, ~20 patterns). Tier 3 (amount-based heuristics) is partially implemented. Tier 4 (PAI inference via `Tools/Inference.ts`) is not implemented.
 
-**Impact:** Transactions not matching known merchants or patterns remain uncategorized. The intelligent categorization fallback that would use AI inference is missing.
+**Impact:** Transactions not matching known merchants or patterns remain uncategorized.
 
-### 13. Test Coverage Very Low
+### 8. Test Coverage Very Low
 
-**Status:** 5 test files with approximately 24 tests covering ~6,600 lines of production code (<1% direct coverage).
+**Status:** 5 test files with approximately 24 tests covering ~6,600+ lines of production code (<1% direct coverage).
 
 **Tested:**
 - FTS search, HybridRanker, Finance pipeline (Normalizer, Deduplicator, FreedomTracker), QBOReader, Semantic search, Vector migration
 
 **Not tested:**
+- EmbeddingPipeline, FileWatcher, DataAccess, all ViewModels
 - All embedding providers (NLEmbedder, QwenClient, CoreMLEmbedder)
 - QueryEngine with real vectors
 - iCloud sync logic
@@ -147,33 +88,41 @@ Note: **AnomalyDetector** is actually fully implemented (unusual amounts via std
 
 **Impact:** High regression risk on changes. No way to validate correctness of sync pipelines or cross-device behavior without manual testing.
 
+### 9. FileWatcher Missing `kFSEventStreamCreateFlagWatchRoot` Flag
+
+**Status:** `FileWatcher.swift:27` checks `rootChanged` events and pauses indexing, but line 76-79 does not include `kFSEventStreamCreateFlagWatchRoot` in the stream creation flags. Without this flag, the kernel may never deliver `RootChanged` events.
+
+**Apple doc:** `coreservices/kfseventstreamcreateflagwatchroot.md` — "Monitors changes to the path itself (renames, parent directory changes). Generates RootChanged events."
+
+**Impact:** VRAM unmount detection via `rootChanged` may not work as intended. The `isUnmount` flag still works for volume unmount events.
+
 ---
 
 ## Minor Gaps
 
-### 14. No Xcode Project File
+### 10. No Xcode Project File
 
 **Status:** The project uses SPM-only builds. Widget extensions and app targets are declared in `Package.swift` but WidgetKit extensions typically require an Xcode project for proper provisioning, capabilities (App Groups, iCloud), and entitlements.
 
-**Impact:** The SwiftUI app and widget extension likely can't be built and signed for device deployment without an `.xcodeproj` or `.xcworkspace`. CLI builds work fine.
+**Impact:** The SwiftUI app and widget extension likely can't be built and signed for device deployment without an `.xcodeproj` or `.xcworkspace`. CLI builds work fine via `scripts/build.sh`.
 
-### 15. SpotlightIndexer Exists But May Not Be Invoked
+### 11. SpotlightIndexer Exists But May Not Be Invoked
 
 **Status:** `Sources/EddingsKit/Search/SpotlightIndexer.swift` has methods to index contacts and documents into Spotlight, but no caller was found in sync pipelines or app lifecycle.
 
 **Impact:** Spotlight search integration exists as code but may not be active.
 
-### 16. No 512-dim Embedding Pipeline
-
-**Status:** NLEmbedder exists and works, but no code generates 512-dim embeddings during sync or migration. The `reality-512.usearch` index appears to exist for iOS compatibility but may be empty unless populated externally.
-
-**Impact:** iOS vector search may have no data if 512-dim embeddings were never generated.
-
-### 17. Search Default Temporal Window
+### 12. Search Default Temporal Window
 
 **Status:** When no temporal filter is specified, FTSIndex defaults to the last 3 months (`Calendar.current.date(byAdding: .month, value: -3, to: Date())`). This is undocumented in the CLI help text.
 
 **Impact:** Users may be confused when older results don't appear. The `--year` or `--since` flags must be explicitly used to search beyond 3 months.
+
+### 13. FileWatcher Uses `Unmanaged.passUnretained(self)` in FSEvents Callback
+
+**Status:** `FileWatcher.swift:70` passes actor reference to C callback without retaining. If the actor is deallocated before the callback fires, this is a use-after-free.
+
+**Impact:** Low in practice (watcher lifetime = process lifetime due to `dispatchMain()`), but is an unsafe pattern. Apple doc (`coreservices/1443980-fseventstreamcreate.md`) leaves lifetime management to the developer.
 
 ---
 
@@ -192,23 +141,45 @@ These are intentional architectural decisions, not missing features:
 
 ---
 
+## Resolved Gaps (PRD-05/06/07)
+
+The following gaps were resolved in the last 96 hours:
+
+| Former Gap | Resolution | PRD |
+|-----------|-----------|-----|
+| New data receives no embeddings | `EmbeddingPipeline` actor: batch `run()` + single-record `embedRecord()` | PRD-05 |
+| SwiftUI views use hardcoded data | 5 ViewModels wired to `DataAccess` + GRDB; ContactList, MeetingList, FreedomDashboard all live | PRD-06 |
+| pendingEmbeddings table has no writers | `EmbeddingPipeline` writes on failure; `retryPendingEmbeddings()` processes up to 500 | PRD-05 |
+| Documents and financials have no embeddings | `EmbeddingPipeline.embeddableTables` includes both | PRD-05 |
+| No 512-dim embedding pipeline | `EmbeddingPipeline` generates 512-dim via NLEmbedder for every record | PRD-05 |
+| Contact and meeting search returns nil | `DataAccess.resolveSearchResult()` handles both `.contacts` and `.meetings` | PRD-06 |
+| 12-hour polling latency | FSEvents watcher (`FileWatcher`) provides ~3-second ingestion; `ei-cli watch` replaces `sync --all` in launch agent | PRD-07 |
+| iOS background tasks are stubs | `handleRefresh` runs `FinanceSyncPipeline`, `handleProcessing` runs full sync + embedding. Expiration handlers fixed. | PRD-05 |
+| NLEmbedding revision not tracked | `NLEmbedder.currentRevision` stored in `vectorKeyMap.embeddingRevision` (v3 migration) | PRD-05 |
+| Keychain/BackgroundTasks/Widget/CKSync API issues | 12 of 17 Apple API compliance issues fixed (see apple-api-compliance.md) | PRD-05 |
+
+---
+
 ## PRD Alignment Summary
 
 | PRD Feature | Status |
 |-------------|--------|
 | SimpleFin + QBO finance sync | Implemented |
-| Freedom Tracker (velocity calc) | Implemented (backend); hardcoded in UI |
-| Transaction categorization | Implemented |
+| Freedom Tracker (velocity calc) | Implemented (backend + UI) |
+| Transaction categorization | Implemented (Tier 1 + 2; Tier 3/4 missing) |
 | Transaction deduplication (exact + fuzzy) | Implemented |
 | FTS5 full-text search | Implemented |
 | Hybrid search (FTS + semantic) | Implemented |
 | PostgreSQL migration | Implemented |
-| iCloud CKSyncEngine sync | Implemented |
-| SwiftUI 3-column layout | Implemented (visual only, hardcoded data) |
-| iOS widgets | Implemented (read from widgetSnapshots) |
+| iCloud CKSyncEngine sync | Implemented (zone verified, all events handled, batch limits) |
+| SwiftUI 3-column layout | Implemented (live data via ViewModels + DataAccess) |
+| iOS widgets | Implemented (cached DB pool, isPreview check, relevance scoring) |
+| Real-time embedding generation | Implemented (EmbeddingPipeline + FileWatcher) |
+| FSEvents file watcher | Implemented (10 VRAM paths, 2s coalescing, route-to-client) |
+| Data cutoff policy (Oct 2025) | Implemented (all sync clients enforce) |
+| Build & distribution pipeline | Implemented (scripts/build.sh — sign, DMG, notarize) |
+| iOS background sync | Partially implemented (handlers work; UIBackgroundModes capability missing) |
 | CalDAV calendar sync | Stub only |
-| iOS background sync | Stub only |
 | CoreML in-process embeddings | Stub only |
-| Real-time embedding generation | Not implemented |
 | Decimal precision for finance | Not implemented (uses Double) |
 | Spotlight indexing | Code exists, may not be wired |

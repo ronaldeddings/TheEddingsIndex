@@ -51,6 +51,10 @@ The reliable baseline. Uses Apple's `NaturalLanguage.NLEmbedding` framework avai
 4. Call `embedding.vector(for: text)` → `[Double]`
 5. Convert to `[Float]` (USearch requires Float)
 
+**Revision Tracking:** `currentRevision` property exposes `NLEmbedding.currentSentenceEmbeddingRevision(for:)`. Revision is stored alongside each vector in `vectorKeyMap.embeddingRevision` to detect model changes after OS updates. See Apple doc: `NaturalLanguage/NLEmbedding/currentSentenceEmbeddingRevision(for_)/README.md`.
+
+**Input limit:** 8192 characters (tokenized before embedding).
+
 **Batch processing** uses `withThrowingTaskGroup` for concurrent embedding generation across multiple texts.
 
 **Dimensions:** 512 (fixed by Apple's model)
@@ -159,6 +163,45 @@ func search(vector: [Float], count: Int) async -> [SearchHit]
 
 ---
 
+## EmbeddingPipeline (Post-Sync Embedding Generation)
+
+**File:** `Sources/EddingsKit/Embedding/EmbeddingPipeline.swift`
+
+Actor that closes the embedding loop — every new record gets vectors after sync.
+
+```
+Sync Pipeline (existing)                    FileWatcher (real-time)
+  IMAPClient → SlackClient →                  FSEvents callback →
+  FathomClient → FileScanner →                route by path prefix →
+  FinanceSyncPipeline                         {Client}.indexSingleFile()
+        │                                            │
+        ▼                                            ▼
+  EmbeddingPipeline.run()                  EmbeddingPipeline.embedRecord(table:id:)
+        │                                            │
+        ├─ retryPendingEmbeddings() (up to 500)      ├─ NLEmbedder → 512-dim
+        ├─ For each of 5 tables:                     ├─ QwenClient → 4096-dim (macOS, best-effort)
+        │   fetchUnembeddedIds()                     ├─ VectorIndex.add()
+        │   fetchTexts() (batches of 100)            └─ vectorKeyMap insert + embeddingRevision
+        │   NLEmbedder → 512-dim (always)
+        │   QwenClient → 4096-dim (macOS, best-effort)
+        │   VectorIndex.add()
+        │   vectorKeyMap insert + embeddingRevision
+        │   On failure → pendingEmbeddings
+        └─ VectorIndex.save()
+```
+
+**Embeddable tables:**
+
+| Table | Text Source |
+|-------|-----------|
+| emailChunks | `chunkText` |
+| slackChunks | `chunkText` |
+| transcriptChunks | `chunkText` |
+| documents | `content` |
+| financialTransactions | composite: `description` + `payee` |
+
+---
+
 ## Database Schema for Embeddings
 
 ### vectorKeyMap Table
@@ -169,11 +212,12 @@ Maps USearch vector keys to source records:
 CREATE TABLE vectorKeyMap (
     vectorKey INTEGER PRIMARY KEY,
     sourceTable TEXT NOT NULL,
-    sourceId INTEGER NOT NULL
+    sourceId INTEGER NOT NULL,
+    embeddingRevision INTEGER          -- v3 migration: tracks NLEmbedding model revision
 );
 ```
 
-This indirection layer allows vectors to reference records across multiple tables (emailChunks, slackChunks, transcriptChunks, etc.) with a single USearch index.
+This indirection layer allows vectors to reference records across multiple tables (emailChunks, slackChunks, transcriptChunks, documents, financialTransactions) with a single USearch index. The `embeddingRevision` column records which `NLEmbedding.currentSentenceEmbeddingRevision(for:)` value generated each vector, enabling detection of model changes after OS updates.
 
 ### pendingEmbeddings Table
 
@@ -190,7 +234,7 @@ CREATE TABLE pendingEmbeddings (
 );
 ```
 
-**Current status:** Schema exists but **no code writes to this table** during sync operations. Only migration from PostgreSQL populates vectors.
+**Current status:** Active. `EmbeddingPipeline` writes to this table when embedding fails (catch blocks in both `run()` and `embedRecord()`). `retryPendingEmbeddings()` processes up to 500 pending records on each pipeline run, deleting them from the table on success.
 
 ---
 
@@ -303,17 +347,19 @@ The existing TypeScript search engine at `localhost:4432` has 345K+ embeddings i
 
 1. **CoreMLEmbedder is a stub** — The in-process Qwen3 CoreML model is not implemented. All 4096-dim embeddings require the external HTTP server at port 8081. This creates a fragile dependency for macOS search quality.
 
-2. **New data gets no embeddings** — Only the PostgreSQL migration populates 4096-dim vectors. Records added via sync (new emails, Slack messages, transcripts) do NOT receive Qwen embeddings. They only get FTS5 indexing, meaning hybrid search degrades over time as new unembedded records enter the system.
+### Resolved (PRD-05/07)
 
-3. **pendingEmbeddings table is unused** — The crash recovery schema exists but no sync code writes to it. The table was designed for iOS background task resilience but has no writers.
+2. ~~**New data gets no embeddings**~~ — **RESOLVED.** `EmbeddingPipeline` actor processes all 5 content tables after sync. Both batch (`run()`) and single-record (`embedRecord()`) paths exist. FileWatcher calls `embedRecord()` on every file event for real-time embedding.
+
+3. ~~**pendingEmbeddings table is unused**~~ — **RESOLVED.** `EmbeddingPipeline` writes to this table on embedding failure. `retryPendingEmbeddings()` processes up to 500 pending records per run.
+
+4. ~~**Documents and financial transactions have no embeddings**~~ — **RESOLVED.** `EmbeddingPipeline.embeddableTables` includes `documents` (text: `content`) and `financialTransactions` (composite: `description` + `payee`).
+
+5. ~~**No background embedding job queue**~~ — **RESOLVED.** `EmbeddingPipeline` is the job queue. Runs after every sync and on every FileWatcher event.
 
 ### Moderate
 
-4. **Documents and financial transactions have no embeddings** — Only transcripts, emails, and Slack chunks received vectors during PostgreSQL migration. Documents and financial records are FTS-only.
-
-5. **No background embedding job queue** — There is no async queue that processes new records and generates embeddings. This would be needed for the "new data gets no embeddings" gap to be addressed.
-
-6. **Widget snapshot generation not implemented** — The `widgetSnapshots` table exists for pre-calculated widget data (avoiding USearch loading in widgets), but the code to generate these snapshots is not wired up.
+6. **Widget snapshot generation only runs during finance sync** — `widgetSnapshots` rows are only created by `FinanceSyncPipeline.run()`. If finance sync fails or is skipped, widget data goes stale.
 
 ### By Design (Not Issues)
 

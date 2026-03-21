@@ -16,11 +16,10 @@ Cross-reference of TheEddingsIndex implementation against Apple developer docume
 
 ### Issues Found
 
-**No Embedding Revision Pinning**
-- Apple provides `NLEmbedding.currentSentenceEmbeddingRevision(for:)` and `sentenceEmbedding(for:revision:)` to pin specific model versions
-- Current code uses whatever the system provides. If Apple updates the embedding model, stored vectors will be misaligned with new query vectors
-- **Impact:** Potential silent search quality degradation after OS updates
-- **Fix:** Store revision alongside vectors; verify consistency on app launch
+**~~No Embedding Revision Pinning~~ — RESOLVED (PRD-05)**
+- `NLEmbedder.swift` now exposes `currentRevision` via `NLEmbedding.currentSentenceEmbeddingRevision(for:)`
+- Revision stored in `vectorKeyMap.embeddingRevision` column (v3 migration)
+- Apple doc: `NaturalLanguage/NLEmbedding/currentSentenceEmbeddingRevision(for_)/README.md`
 
 **512-Dim Claim Unverified**
 - Apple documentation does NOT explicitly state the embedding dimension for sentence embeddings
@@ -52,39 +51,30 @@ Cross-reference of TheEddingsIndex implementation against Apple developer docume
 
 ### Issues Found
 
-**Missing Zone Creation Verification**
-- Zone ID `EddingsData` is hardcoded but never explicitly created
-- CKSyncEngine may auto-create zones on first send, but this isn't guaranteed
-- **Fix:** Add explicit zone creation in `start()` method, or verify zone exists
+**~~Missing Zone Creation Verification~~ — RESOLVED (PRD-05)**
+- `start()` now async — checks zone existence, creates if `zoneNotFound`
+- Apple doc: `CloudKit/CKSyncEngine-5sie5/README.md`
 
-**7+ Delegate Events Ignored**
-- `default` case in `handleEvent` swallows: `.willFetchChanges`, `.willFetchRecordZoneChanges`, `.fetchedDatabaseChanges`, `.willSendChanges`, `.didFetchChanges`, `.didFetchRecordZoneChanges`, `.didSendChanges`
-- These events are needed for: UI sync indicators, progress tracking, error recovery, batch completion signals
-- **Impact:** No way to show sync progress or handle zone-level errors
+**~~7+ Delegate Events Ignored~~ — RESOLVED (PRD-05)**
+- All CKSyncEngine event types now handled with logging: `willFetchChanges`, `willFetchRecordZoneChanges`, `fetchedDatabaseChanges`, `willSendChanges`, `didFetchChanges`, `didFetchRecordZoneChanges`, `didSendChanges`, `sentDatabaseChanges`, `sentRecordZoneChanges`
+- Apple doc: `CloudKit/CKSyncEngine-5sie5/Event/README.md`
 
-**Missing `nextFetchChangesOptions` Delegate Method**
-- Apple docs document this method for customizing fetch behavior per zone
-- Not implemented — sync engine uses default fetch behavior uniformly
+**~~No Batch Size Limits in buildNextBatch~~ — RESOLVED (PRD-05)**
+- Capped at 400 pending changes per batch with overflow logging
 
-**Incomplete Account Change Handling**
-- On `.switchAccounts`: only deletes state file
-- Apple docs state: "When a sync engine detects a change, it resets its internal state including unsaved changes"
-- Should also flush pending writes, notify app, and clear in-memory caches
+**~~CKAsset Temp Files Not Cleaned Up~~ — RESOLVED (PRD-05)**
+- `cleanupTempFiles()` called after `sentRecordZoneChanges`, deletes `ck-asset-*` temp files
 
-**Conflict Resolution Only for FinancialTransaction**
+**~~Incomplete Account Change Handling~~ — RESOLVED (PRD-05)**
+- On `.switchAccounts`, WAL checkpoint flushes pending writes before clearing sync state
+
+**Conflict Resolution Only for FinancialTransaction** (By Design)
 - `categoryModifiedAt` timestamp comparison is correct for financial records
-- All other record types silently use server record (last-write-wins)
-- No explicit documentation of this strategy for other types
+- All other record types use server record (last-write-wins) — documented in code
+- All conflict events logged with record type and ID
 
-**No Batch Size Limits in buildNextBatch**
-- Creates `RecordZoneChangeBatch` with ALL pending changes at once
-- Could hit CloudKit limits or cause timeouts with large pending sets
-- **Fix:** Chunk pending changes into manageable batches
-
-**CKAsset Temp Files Not Cleaned Up**
-- `attachContentAsAssetIfNeeded` creates temp files in `/tmp`
-- No cleanup mechanism after successful send
-- Files persist until system cleanup
+**Missing `nextFetchChangesOptions` Delegate Method** (Acceptable)
+- Not needed for single-zone setup — CKSyncEngine automatically fetches for all zones
 
 ---
 
@@ -92,41 +82,26 @@ Cross-reference of TheEddingsIndex implementation against Apple developer docume
 
 **File:** `Sources/EddingsKit/Sync/BackgroundTaskManager.swift`
 
-### Critical Issues
+### Issues Found — Mostly Resolved (PRD-05)
 
-**Task Completion Called Before Async Work Finishes**
-```swift
-let operation = Task {
-    // TODO: Implement quick transaction check
-    task.setTaskCompleted(success: true)  // ← Inside async task
-}
-```
-The actual issue is that the TODO stubs call `setTaskCompleted(success: true)` immediately — when real async work is added, the `Task { }` block needs to properly await completion before calling `setTaskCompleted`.
+**~~Task Completion Called Before Async Work Finishes~~ — RESOLVED**
+- Both `handleRefresh` (runs `FinanceSyncPipeline`) and `handleProcessing` (full sync + `EmbeddingPipeline`) now do real work with proper async completion.
 
-**Expiration Handler Doesn't Call setTaskCompleted**
-```swift
-task.expirationHandler = {
-    operation.cancel()
-    // Missing: task.setTaskCompleted(success: false)
-}
-```
-Apple docs: "If you don't set an expiration handler, the system marks your task as complete and unsuccessful." The expiration handler MUST call `setTaskCompleted(success: false)` after cancellation or the system terminates the app.
+**~~Expiration Handler Doesn't Call setTaskCompleted~~ — RESOLVED**
+- `setTaskCompleted(success: false)` added to expiration handlers after `operation.cancel()`
+- Apple doc: `BackgroundTasks/BGTask/setTaskCompleted(success_)/README.md`
 
-**Race Condition in Reschedule Timing**
-- Both `handleRefresh` and `handleProcessing` call `scheduleRefresh()`/`scheduleProcessing()` BEFORE async work starts
-- Apple docs: "Submitting a task request for an unexecuted task already in the queue replaces the previous request"
-- On repeated failures, creates a tight loop of failed rescheduling
-- **Fix:** Reschedule AFTER async work completes, with backoff on failure
+**~~Race Condition in Reschedule Timing~~ — RESOLVED**
+- `scheduleRefresh()`/`scheduleProcessing()` moved inside async Task block, after work completes
 
-**Silent Failure on Task Submission**
-- `try? BGTaskScheduler.shared.submit(request)` silently discards errors
-- Can fail with: `tooManyPendingTaskRequests`, `notPermitted`, `unavailable`
-- **Fix:** Log errors at minimum
+**~~Silent Failure on Task Submission~~ — RESOLVED**
+- `try?` replaced with `do/try/catch` logging specific `BGTaskScheduler.Error` codes
 
-**Missing UIBackgroundModes Capability**
+**Missing UIBackgroundModes Capability — STILL OPEN**
 - `Info.plist` correctly lists `BGTaskSchedulerPermittedIdentifiers`
 - But the Xcode project must also declare `UIBackgroundModes` capability with `fetch` and `processing`
 - Without this capability, tasks are registered but never scheduled by the system
+- **Requires Xcode project edit** — cannot be done via SPM
 
 ---
 
@@ -134,28 +109,21 @@ Apple docs: "If you don't set an expiration handler, the system marks your task 
 
 **File:** `Sources/EddingsWidgets/FreedomVelocityWidget.swift`
 
-### Issues Found
+### Issues Found — All Resolved (PRD-05)
 
-**getSnapshot() Doesn't Check context.isPreview**
-- Always returns `placeholder()` data instead of real data
-- Apple docs: "If context.isPreview is true, the widget appears in the widget gallery"
-- Should return real data for non-preview contexts, placeholder for preview
-- **Fix:** Check `context.isPreview`; load from DB for non-preview
+**~~getSnapshot() Doesn't Check context.isPreview~~ — RESOLVED**
+- Both providers now check `context.isPreview` — return placeholder for preview, real data otherwise
+- Apple doc: `WidgetKit/TimelineProviderContext/README.md` — `isPreview` is true in widget gallery
 
-**Fresh DatabasePool on Every Call**
-- `loadLatestWidgetSnapshot()` opens a new `DatabasePool` each time
-- Widgets have 30MB RAM limit — repeated pool creation adds overhead
-- **Fix:** Use shared pool or singleton pattern
+**~~Fresh DatabasePool on Every Call~~ — RESOLVED**
+- Created `WidgetDatabase` enum with static `pool` — shared across all timeline calls
 
-**Missing TimelineEntry.relevance**
-- Neither `FreedomVelocityEntry` nor `NetWorthEntry` implement the optional `relevance` property
-- Without this, widgets won't be prioritized in Smart Stacks (iOS 17+)
+**~~Missing TimelineEntry.relevance~~ — RESOLVED**
+- `FreedomVelocityEntry` scores by velocity %, `NetWorthEntry` by |dailyChange|/5000
+- Apple doc: `WidgetKit/TimelineEntryRelevance/README.md`
 
-**6-Hour Reload Policy May Be Too Aggressive**
-- Widgets have a limited daily refresh budget
-- Two widgets × 4 refreshes/day = 8 daily refreshes
-- Financial data only changes during business hours
-- **Consider:** Longer intervals or `.atEnd` policy
+**~~6-Hour Reload Policy May Be Too Aggressive~~ — RESOLVED**
+- Changed to `.atEnd` reload policy for both widgets
 
 ---
 
@@ -168,29 +136,23 @@ Apple docs: "If you don't set an expiration handler, the system marks your task 
 - Uses `kSecAttrAccessibleWhenUnlockedThisDeviceOnly` for interactive credentials
 - Service identifier consistent: `com.hackervalley.eddingsindex`
 
-### Issues Found
+### Issues Found — Mostly Resolved (PRD-05)
 
-**SecAccessControl + kSecAttrAccessible Conflict**
-- When `biometric: true`, code creates `SecAccessControlCreateWithFlags` with `.userPresence` AND sets `kSecAttrAccessible` separately
-- Apple docs state these are mutually exclusive — `SecAccessControl` already specifies access constraints and replaces `kSecAttrAccessible`
-- **Impact:** Biometric protection may not work as intended
-- **Fix:** When biometric is required, use ONLY `kSecAttrAccessControl` (drop `kSecAttrAccessible`)
+**~~SecAccessControl + kSecAttrAccessible Conflict~~ — VERIFIED NOT AN ISSUE**
+- Code already uses if/else — `kSecAttrAccessControl` and `kSecAttrAccessible` are never combined
+- Apple doc: `Security/SecAccessControlCreateWithFlags(________).md`
 
-**Missing kSecUseDataProtectionKeychain on macOS**
-- On macOS 10.15+, items default to the legacy Keychain unless `kSecUseDataProtectionKeychain: true` is set
-- Without this flag, SimpleFin URL stores in legacy keychain (not encrypted at rest with device key)
-- **Fix:** Add `kSecUseDataProtectionKeychain: true` to all queries on macOS
+**~~Missing kSecUseDataProtectionKeychain on macOS~~ — RESOLVED**
+- Added via `baseQuery()` helper with `#if os(macOS)`
+- Apple doc: `Security/kSecUseDataProtectionKeychain.md` — required for modern keychain on macOS 10.15+
 
-**No kSecAttrAccessGroup for Widget Extension Sharing**
-- KeychainManager doesn't set `kSecAttrAccessGroup`
-- Widget extensions need credentials to refresh data but can't access them without a shared access group
-- **Fix:** Add `kSecAttrAccessGroup: "group.com.hackervalley.eddingsindex"` on iOS
+**~~No kSecAttrAccessGroup for Widget Extension Sharing~~ — RESOLVED**
+- Added via `baseQuery()` helper with `#if os(iOS)`
 
-**Biometric Error Indistinguishable from "Not Found"**
-- `retrieve()` returns `nil` for both `errSecItemNotFound` (legitimate miss) and `errSecInteractionNotAllowed` (user denied biometric)
-- **Fix:** Differentiate error types — throw for auth denial, return nil for not found
+**~~Biometric Error Indistinguishable from "Not Found"~~ — RESOLVED**
+- Added `errSecInteractionNotAllowed` check throwing `KeychainError.biometricDenied`
 
-**Update-Before-Add May Trigger Auth Prompts**
+**Update-Before-Add May Trigger Auth Prompts** (Remaining)
 - Pattern tries `SecItemUpdate` first, which on biometric-protected items prompts the user even if the intent is to add a new item
 - **Fix:** Use `SecItemCopyMatching` (no data fetch) to check existence first
 
@@ -215,23 +177,62 @@ Apple docs: "If you don't set an expiration handler, the system marks your task 
 
 ---
 
+---
+
+## CoreServices (FSEvents) — New in PRD-07
+
+**File:** `Sources/EddingsKit/Sync/FileWatcher.swift`
+
+### Correct Usage
+- `FSEventStreamCreate` with `kFSEventStreamCreateFlagFileEvents` | `kFSEventStreamCreateFlagNoDefer` | `kFSEventStreamCreateFlagIgnoreSelf`
+- Apple doc: `coreservices/1443980-fseventstreamcreate.md`
+- `FSEventStreamSetDispatchQueue` used (preferred over run loop per Apple guidance)
+- Latency of 2.0 seconds for temporal coalescing — appropriate for daemon use
+- Proper cleanup: `FSEventStreamStop` → `FSEventStreamInvalidate` → `FSEventStreamRelease`
+
+### Issues Found
+
+**Missing `kFSEventStreamCreateFlagWatchRoot` Flag**
+- `FileWatcher.swift:27` checks `rootChanged` events (pauses indexing on root change)
+- But `kFSEventStreamCreateFlagWatchRoot` is NOT set in stream creation flags (line 76-79)
+- Without this flag, the kernel may never deliver `kFSEventStreamEventFlagRootChanged` events
+- Apple doc: `coreservices/kfseventstreamcreateflagwatchroot.md` — "Monitors changes to the path itself"
+- **Impact:** VRAM path rename/move detection may not work. Volume unmount (`isUnmount`) still works independently.
+
+**`kFSEventStreamCreateFlagNoDefer` in Daemon Context**
+- Apple doc (`coreservices/kfseventstreamcreateflagnodefer.md`): "For interactive apps wanting immediate reaction"
+- Without this flag, events batch during the full latency window (default, more appropriate for daemons)
+- With it: first event fires immediately (0 latency), then subsequent events within 2s are coalesced
+- **Impact:** Deliberate choice for low-latency indexing. Documented here as intentional.
+
+**`Unmanaged.passUnretained(self)` Lifetime Risk**
+- `FileWatcher.swift:70`: passes actor reference to C callback without retaining
+- If the actor is deallocated before the callback fires, use-after-free occurs
+- **Impact:** Low — watcher lifetime = process lifetime (blocked by `dispatchMain()` in WatchCommand)
+- **Mitigation:** Consider `passRetained`/`takeRetainedValue` for safety, or document the lifetime guarantee
+
+---
+
 ## Summary of Compliance Issues
 
-| Framework | Severity | Issue |
-|-----------|----------|-------|
-| NaturalLanguage | MODERATE | No embedding revision pinning — vectors could become misaligned |
-| NaturalLanguage | LOW | 512-dim hardcoded without Apple docs confirming this value |
-| CloudKit | HIGH | Zone creation never verified before sync |
-| CloudKit | HIGH | 7+ delegate events silently ignored |
-| CloudKit | MODERATE | No batch size limits — could hit CloudKit limits |
-| CloudKit | MODERATE | Account change handling incomplete |
-| BackgroundTasks | CRITICAL | Expiration handler doesn't call setTaskCompleted |
-| BackgroundTasks | CRITICAL | Missing UIBackgroundModes capability |
-| BackgroundTasks | HIGH | Task submission errors silently discarded |
-| WidgetKit | HIGH | getSnapshot() ignores context.isPreview |
-| WidgetKit | MODERATE | Fresh DatabasePool per call in 30MB-limited widget |
-| WidgetKit | LOW | Missing TimelineEntry.relevance for Smart Stacks |
-| Security | HIGH | SecAccessControl + kSecAttrAccessible conflict — biometric may not work |
-| Security | HIGH | Missing kSecUseDataProtectionKeychain on macOS — legacy keychain used |
-| Security | MODERATE | No kSecAttrAccessGroup — widget can't access keychain items |
-| Security | MODERATE | Biometric denial returns nil instead of throwing error |
+| Framework | Severity | Issue | Status |
+|-----------|----------|-------|--------|
+| NaturalLanguage | ~~MODERATE~~ | ~~No embedding revision pinning~~ | **RESOLVED** — revision tracked in vectorKeyMap |
+| NaturalLanguage | LOW | 512-dim hardcoded without Apple docs confirming value | Open |
+| CloudKit | ~~HIGH~~ | ~~Zone creation never verified~~ | **RESOLVED** — start() verifies zone |
+| CloudKit | ~~HIGH~~ | ~~7+ delegate events silently ignored~~ | **RESOLVED** — all events handled |
+| CloudKit | ~~MODERATE~~ | ~~No batch size limits~~ | **RESOLVED** — capped at 400 |
+| CloudKit | ~~MODERATE~~ | ~~Account change handling incomplete~~ | **RESOLVED** — WAL checkpoint on switchAccounts |
+| BackgroundTasks | ~~CRITICAL~~ | ~~Expiration handler doesn't call setTaskCompleted~~ | **RESOLVED** |
+| BackgroundTasks | CRITICAL | Missing UIBackgroundModes capability | **OPEN** — requires Xcode project edit |
+| BackgroundTasks | ~~HIGH~~ | ~~Task submission errors silently discarded~~ | **RESOLVED** — do/try/catch with logging |
+| WidgetKit | ~~HIGH~~ | ~~getSnapshot() ignores context.isPreview~~ | **RESOLVED** |
+| WidgetKit | ~~MODERATE~~ | ~~Fresh DatabasePool per call~~ | **RESOLVED** — static cached pool |
+| WidgetKit | ~~LOW~~ | ~~Missing TimelineEntry.relevance~~ | **RESOLVED** — scoring implemented |
+| Security | ~~HIGH~~ | ~~SecAccessControl + kSecAttrAccessible conflict~~ | **NOT AN ISSUE** — verified if/else |
+| Security | ~~HIGH~~ | ~~Missing kSecUseDataProtectionKeychain~~ | **RESOLVED** |
+| Security | ~~MODERATE~~ | ~~No kSecAttrAccessGroup~~ | **RESOLVED** |
+| Security | ~~MODERATE~~ | ~~Biometric denial returns nil~~ | **RESOLVED** — distinct error |
+| Security | LOW | Update-before-add may trigger auth prompts | Open |
+| CoreServices | LOW | Missing kFSEventStreamCreateFlagWatchRoot | **NEW** — rootChanged events may not fire |
+| CoreServices | INFO | Unmanaged.passUnretained lifetime risk | **NEW** — low risk, document only |

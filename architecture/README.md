@@ -6,12 +6,12 @@ Comprehensive documentation of TheEddingsIndex — a Swift multiplatform persona
 
 | Document | Description |
 |----------|-------------|
-| [overview.md](overview.md) | High-level architecture, technology stack, targets, subsystems, CLI commands, SwiftUI app structure, design system |
-| [data-flows.md](data-flows.md) | How data moves through the system — sync pipelines, search pipeline, migration flow, iCloud sync, launch agent |
-| [storage.md](storage.md) | SQLite schema (all tables, columns, indices, FTS5), GRDB patterns, USearch configuration, iCloud CKSyncEngine |
-| [embeddings.md](embeddings.md) | Deep dive on the dual-embedding strategy — NLEmbedder (512-dim), QwenClient (4096-dim), CoreMLEmbedder (stub), VectorIndex actor, hybrid search with RRF, migration from PostgreSQL |
-| [gaps.md](gaps.md) | Known gaps between planned and actual implementation — critical (no live embeddings, hardcoded UI), moderate (iOS background stubs), and minor issues |
-| [apple-api-compliance.md](apple-api-compliance.md) | Cross-reference against Apple developer docs — NaturalLanguage, CloudKit CKSyncEngine, BackgroundTasks, WidgetKit, Security/Keychain, CoreML |
+| [overview.md](overview.md) | High-level architecture, technology stack, targets, subsystems (57+ files), CLI commands (including `watch`), SwiftUI app structure (ViewModels, Components), build pipeline, design system |
+| [data-flows.md](data-flows.md) | How data moves through the system — batch sync + real-time FSEvents watcher, EmbeddingPipeline, search pipeline, data policy (Oct 2025 cutoff), iCloud sync, launch agent |
+| [storage.md](storage.md) | SQLite schema (all tables, columns, indices, FTS5), migrations v1–v3, GRDB patterns, USearch configuration, iCloud CKSyncEngine |
+| [embeddings.md](embeddings.md) | Dual-embedding strategy — NLEmbedder (512-dim, revision tracking), QwenClient (4096-dim), EmbeddingPipeline (batch + real-time), VectorIndex actor, hybrid search with RRF |
+| [gaps.md](gaps.md) | Known gaps — critical (CoreML stub), moderate (CalDAV stub, Double precision, test coverage), minor (Xcode project, Spotlight). Resolved gaps tracker for PRD-05/06/07 |
+| [apple-api-compliance.md](apple-api-compliance.md) | Cross-reference against Apple developer docs — NaturalLanguage, CloudKit CKSyncEngine, BackgroundTasks, WidgetKit, Security/Keychain, CoreServices/FSEvents. 12 of 17 original issues resolved |
 
 ## Quick Reference
 
@@ -27,7 +27,7 @@ Comprehensive documentation of TheEddingsIndex — a Swift multiplatform persona
 ```
 ┌──────────────────────────────────────────────┐
 │              External Sources                  │
-│  SimpleFin · QBO · VRAM · Slack · Email · Fathom · Qwen3  │
+│  SimpleFin · QBO · VRAM · Slack · Email · Fathom · Qwen3 · FSEvents  │
 └───────────────────┬──────────────────────────┘
                     │
                     ▼
@@ -35,7 +35,9 @@ Comprehensive documentation of TheEddingsIndex — a Swift multiplatform persona
 │            EddingsKit (Shared Library)        │
 │                                               │
 │  Sync → Normalize → Deduplicate → Store       │
+│  Embed → NLEmbedder(512) + Qwen(4096)        │
 │  Search → FTS5 + Semantic → HybridRanker      │
+│  Watch → FSEvents → indexSingleFile → embed   │
 │  Intelligence → Freedom · Relationships       │
 └───────────────────┬──────────────────────────┘
                     │

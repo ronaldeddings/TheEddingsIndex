@@ -47,8 +47,8 @@ How data moves through TheEddingsIndex — from external sources, through normal
             ▼                                                    ▼
  ┌──────────────────┐                              ┌──────────────────┐
  │  USearch HNSW    │                              │  QwenClient      │
- │  reality-512     │◄─── (PostgresMigrator) ──────│  → embed query   │
- │  reality-4096    │                              │  → search vectors│
+ │  reality-512     │◄── EmbeddingPipeline ────────│  → embed text    │
+ │  reality-4096    │◄── (+ PostgresMigrator)      │  → embed query   │
  └────────┬─────────┘                              └────────┬─────────┘
           │                                                  │
           └──────────────────┬───────────────────────────────┘
@@ -66,21 +66,49 @@ How data moves through TheEddingsIndex — from external sources, through normal
 
 ## Sync Pipelines
 
-### Orchestration (SyncCommand)
+### Orchestration
 
-The CLI `sync` command orchestrates all pipelines sequentially:
+There are two ingestion modes: **batch sync** (catchup) and **real-time watch** (primary).
+
+#### Batch Sync (SyncCommand / WatchCommand catchup)
 
 ```
-ei-cli sync --all
+ei-cli sync --all  (or watch startup catchup)
     │
     ├─ 1. FinanceSyncPipeline (SimpleFin + QBO)
     ├─ 2. FileScanner (VRAM filesystem)
     ├─ 3. SlackClient (Slack exports)
     ├─ 4. IMAPClient (Email JSON files)
-    └─ 5. FathomClient (Meeting transcripts)
+    ├─ 5. FathomClient (Meeting transcripts)
+    └─ 6. EmbeddingPipeline.run() — batch embed all unembedded records
 ```
 
-Each pipeline runs independently. Failures in one pipeline don't stop others — errors are collected and reported at the end. The launch agent runs `sync --all` every 12 hours.
+Each pipeline runs independently. Failures in one pipeline don't stop others — errors are collected and reported at the end.
+
+#### Real-Time Watch (FileWatcher — primary mode)
+
+```
+FSEvents kernel notification (2-second coalescing)
+    │
+    ▼
+FileWatcher.processEvents()
+    │
+    ├─ Route by path prefix:
+    │   /14.01b_emails_json/*.json  → IMAPClient.indexSingleFile()
+    │   /14.02_slack/*.json         → SlackClient.indexSingleFile()
+    │   /13.01_transcripts/*.md|txt → FathomClient.indexSingleFile()
+    │   {scan_area}/*               → FileScanner.indexSingleFile()
+    │
+    ├─ For each inserted record ID:
+    │   EmbeddingPipeline.embedRecord(table:id:)
+    │     ├─ NLEmbedder → 512-dim
+    │     ├─ QwenClient → 4096-dim (macOS, best-effort)
+    │     └─ vectorKeyMap insert + embeddingRevision
+    │
+    └─ VectorIndex.save() (after batch)
+```
+
+The launch agent runs `ei-cli watch` as a continuous daemon (`KeepAlive: true`). On startup, it performs a full catchup sync, then starts the FSEvents watcher. New files become searchable in ~3 seconds.
 
 ### 1. Finance Pipeline
 
@@ -321,19 +349,40 @@ PostgreSQL (345K+ embeddings, 1.3M+ records)
 
 ---
 
+## Data Policy
+
+All sync clients enforce a data cutoff:
+
+- **`DataPolicy.cutoffDate`**: October 1, 2025 (`DatabaseManager.swift`)
+- **IMAPClient**: Rejects email JSON files with filename prefix before `2025-10` without reading content
+- **SlackClient**: Skips messages with `date < cutoffDate`
+- **FathomClient**: Filters transcripts by meeting date
+- **FileScanner**: Skips documents with `modifiedAt` before cutoff
+- **Indexable extensions**: `.md`, `.txt`, `.csv`, `.yml`, `.yaml`, `.toml`
+- **File size limit**: <1MB per file
+
+This policy prevents ingestion of pre-October 2025 data, keeping the index focused on current data.
+
+---
+
 ## Launch Agent Automation
 
 **File:** `com.vram.eddings-index.plist`
 
 ```
-Every 12 hours (and at login):
-    .build/release/ei-cli sync --all
+Continuous daemon (KeepAlive: true, RunAtLoad: true):
+    .build/release/ei-cli watch
         │
-        ├─ Finance (SimpleFin API + QBO)
-        ├─ Files (VRAM scan)
-        ├─ Slack (export parse)
-        ├─ Emails (JSON parse)
-        └─ Meetings (transcript parse)
+        ├─ Startup: catchup sync
+        │   ├─ Finance (SimpleFin API + QBO)
+        │   ├─ Files (VRAM scan)
+        │   ├─ Slack (export parse)
+        │   ├─ Emails (JSON parse)
+        │   ├─ Meetings (transcript parse)
+        │   └─ EmbeddingPipeline (batch embed unembedded records)
+        │
+        ├─ Then: FSEvents watcher (10 VRAM paths, 2s coalescing)
+        │   └─ Real-time: file event → indexSingleFile → embedRecord → save
         │
         ├─ stdout → ~/Library/Logs/vram/reality/sync.log
         └─ stderr → ~/Library/Logs/vram/reality/error.log
